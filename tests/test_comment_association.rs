@@ -560,7 +560,13 @@ city: New York
     let YamlValue::Object(reparsed_map) = &reparsed.value else {
         panic!("Expected object in reparsed, got {:?}", reparsed.value);
     };
-    assert_eq!(reparsed_map.get("name").and_then(|n| n.as_str()), Some("John Doe"));
+    assert_eq!(
+        reparsed_map.get("name").and_then(|n| n.as_str()),
+        Some("John Doe")
+    );
     assert_eq!(reparsed_map.get("age").and_then(|n| n.as_str()), Some("30"));
-    assert_eq!(reparsed_map.get("city").and_then(|n| n.as_str()), Some("New York"));
+    assert_eq!(
+        reparsed_map.get("city").and_then(|n| n.as_str()),
+        Some("New York")
+    );
 }

@@ -1,4 +1,4 @@
-use crate::parser::{YamlNode, YamlValue};
+use crate::types::{YamlNode, YamlValue};
 use std::fmt::Write;
 
 pub(crate) struct Emitter {
@@ -19,6 +19,17 @@ impl Emitter {
     pub(crate) fn emit(&mut self, node: &YamlNode) -> String {
         self.output.clear(); // Clear previous content instead of creating new String
         self.emit_node(node, false);
+
+        // Emit trailing comments at the end of the document
+        if let Some(ref trailing) = node.trailing_comment {
+            if !self.output.is_empty() && !self.output.ends_with('\n') {
+                self.output.push('\n');
+            }
+            for line in trailing.lines() {
+                writeln!(&mut self.output, "# {}", line).unwrap();
+            }
+        }
+
         std::mem::take(&mut self.output) // Move instead of clone
     }
 
@@ -361,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_emit_with_special_chars() {
-        use crate::parser::YamlObject;
+        use crate::types::YamlObject;
 
         let mut obj = YamlObject::new();
         obj.insert(
@@ -397,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_emit_multiline_string() {
-        use crate::parser::YamlObject;
+        use crate::types::YamlObject;
 
         let mut obj = YamlObject::new();
         obj.insert(

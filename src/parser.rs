@@ -1,186 +1,11 @@
 use crate::lexer::{Lexer, Token, TokenKind};
+use crate::types::{YamlNode, YamlObject, YamlValue};
 
 #[derive(Debug, Clone, Copy)]
 enum ChompMode {
     Strip, // - remove trailing newlines
     Clip,  // default - single newline
     Keep,  // + keep all trailing newlines
-}
-
-/// A YAML object that preserves insertion order
-#[derive(Debug, Clone, PartialEq)]
-pub struct YamlObject {
-    pairs: Vec<(String, YamlNode)>,
-}
-
-impl YamlObject {
-    pub fn new() -> Self {
-        YamlObject { pairs: Vec::new() }
-    }
-
-    pub fn insert(&mut self, key: String, value: YamlNode) {
-        // Check if key exists and update, otherwise append
-        for (k, v) in &mut self.pairs {
-            if k == &key {
-                *v = value;
-                return;
-            }
-        }
-        self.pairs.push((key, value));
-    }
-
-    pub fn get(&self, key: &str) -> Option<&YamlNode> {
-        self.pairs.iter().find(|(k, _)| k == key).map(|(_, v)| v)
-    }
-
-    pub fn get_mut(&mut self, key: &str) -> Option<&mut YamlNode> {
-        self.pairs.iter_mut().find(|(k, _)| k == key).map(|(_, v)| v)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = (&String, &YamlNode)> {
-        self.pairs.iter().map(|(k, v)| (k, v))
-    }
-
-    pub fn keys(&self) -> impl Iterator<Item = &String> {
-        self.pairs.iter().map(|(k, _)| k)
-    }
-
-    pub fn values(&self) -> impl Iterator<Item = &YamlNode> {
-        self.pairs.iter().map(|(_, v)| v)
-    }
-
-    pub fn len(&self) -> usize {
-        self.pairs.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.pairs.is_empty()
-    }
-
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.pairs.iter().any(|(k, _)| k == key)
-    }
-}
-
-impl Default for YamlObject {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl<'a> IntoIterator for &'a YamlObject {
-    type Item = (&'a String, &'a YamlNode);
-    type IntoIter = std::iter::Map<
-        std::slice::Iter<'a, (String, YamlNode)>,
-        fn(&'a (String, YamlNode)) -> (&'a String, &'a YamlNode),
-    >;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pairs.iter().map(|(k, v)| (k, v))
-    }
-}
-
-impl IntoIterator for YamlObject {
-    type Item = (String, YamlNode);
-    type IntoIter = std::vec::IntoIter<(String, YamlNode)>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.pairs.into_iter()
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub enum YamlValue {
-    String(String),
-    Array(Vec<YamlNode>),
-    Object(YamlObject),
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct YamlNode {
-    pub value: YamlValue,
-    pub leading_comment: Option<String>,
-    pub inline_comment: Option<String>,
-}
-
-impl YamlNode {
-    pub(crate) fn new(value: YamlValue) -> Self {
-        YamlNode {
-            value,
-            leading_comment: None,
-            inline_comment: None,
-        }
-    }
-
-    pub(crate) fn with_comments(
-        value: YamlValue,
-        leading: Option<String>,
-        inline: Option<String>,
-    ) -> Self {
-        YamlNode {
-            value,
-            leading_comment: leading,
-            inline_comment: inline,
-        }
-    }
-
-    // Public constructor for external use
-    pub fn from_value(value: YamlValue) -> Self {
-        YamlNode {
-            value,
-            leading_comment: None,
-            inline_comment: None,
-        }
-    }
-
-    // Helper methods for ergonomic value access
-
-    /// Returns the string value if this node contains a string
-    pub fn as_str(&self) -> Option<&str> {
-        match &self.value {
-            YamlValue::String(s) => Some(s.as_ref()),
-            YamlValue::Array(_) | YamlValue::Object(_) => None,
-        }
-    }
-
-    /// Returns the object if this node contains an object
-    pub fn as_object(&self) -> Option<&YamlObject> {
-        match &self.value {
-            YamlValue::Object(obj) => Some(obj),
-            YamlValue::String(_) | YamlValue::Array(_) => None,
-        }
-    }
-
-    /// Returns the array items if this node contains an array
-    pub fn as_array(&self) -> Option<&[YamlNode]> {
-        match &self.value {
-            YamlValue::Array(items) => Some(items),
-            YamlValue::String(_) | YamlValue::Object(_) => None,
-        }
-    }
-
-    /// Gets a child node by key if this node is an object
-    pub fn get(&self, key: &str) -> Option<&YamlNode> {
-        match &self.value {
-            YamlValue::Object(obj) => obj.get(key),
-            YamlValue::String(_) | YamlValue::Array(_) => None,
-        }
-    }
-
-    /// Returns true if this node is a string
-    pub fn is_string(&self) -> bool {
-        matches!(&self.value, YamlValue::String(_))
-    }
-
-    /// Returns true if this node is an object
-    pub fn is_object(&self) -> bool {
-        matches!(&self.value, YamlValue::Object(_))
-    }
-
-    /// Returns true if this node is an array
-    pub fn is_array(&self) -> bool {
-        matches!(&self.value, YamlValue::Array(_))
-    }
 }
 
 pub(crate) struct Parser<'g> {
@@ -213,7 +38,9 @@ impl<'g> Parser<'g> {
                     // Look at the token before this comment
                     let is_inline_comment = if check_position > 0 {
                         let prev_token = &self.tokens[check_position - 1];
-                        prev_token.kind != TokenKind::NewLine && prev_token.kind != TokenKind::Indent && prev_token.kind != TokenKind::Dedent
+                        prev_token.kind != TokenKind::NewLine
+                            && prev_token.kind != TokenKind::Indent
+                            && prev_token.kind != TokenKind::Dedent
                     } else {
                         false
                     };
@@ -225,7 +52,8 @@ impl<'g> Parser<'g> {
 
                     // If we haven't found any significant non-comment content yet, this comment belongs to current position
                     if !found_non_comment_content {
-                        leading_comments.insert(0, token.text.trim_start_matches('#').trim().to_string());
+                        leading_comments
+                            .insert(0, token.text.trim_start_matches('#').trim().to_string());
                     } else {
                         // We found a comment but there's content between it and current position
                         // Check if there are only whitespace/newlines between this comment and current position
@@ -234,7 +62,10 @@ impl<'g> Parser<'g> {
                         for i in (check_position + 1)..self.current {
                             if i < self.tokens.len() {
                                 match self.tokens[i].kind {
-                                    TokenKind::Whitespace | TokenKind::Indent | TokenKind::Dedent | TokenKind::NewLine => continue,
+                                    TokenKind::Whitespace
+                                    | TokenKind::Indent
+                                    | TokenKind::Dedent
+                                    | TokenKind::NewLine => continue,
                                     TokenKind::Identifier
                                     | TokenKind::Colon
                                     | TokenKind::String
@@ -250,13 +81,17 @@ impl<'g> Parser<'g> {
                         }
 
                         if valid_comment {
-                            leading_comments.insert(0, token.text.trim_start_matches('#').trim().to_string());
+                            leading_comments
+                                .insert(0, token.text.trim_start_matches('#').trim().to_string());
                         } else {
                             break; // Stop looking backward if we hit a non-associable comment
                         }
                     }
                 }
-                TokenKind::Whitespace | TokenKind::NewLine | TokenKind::Indent | TokenKind::Dedent => {
+                TokenKind::Whitespace
+                | TokenKind::NewLine
+                | TokenKind::Indent
+                | TokenKind::Dedent => {
                     continue; // Keep looking backward through whitespace
                 }
                 TokenKind::Identifier
@@ -274,7 +109,10 @@ impl<'g> Parser<'g> {
         // Now look forward from current position for any additional comments
         while let Some(token) = self.current_token() {
             match token.kind {
-                TokenKind::Whitespace | TokenKind::NewLine | TokenKind::Indent | TokenKind::Dedent => {
+                TokenKind::Whitespace
+                | TokenKind::NewLine
+                | TokenKind::Indent
+                | TokenKind::Dedent => {
                     self.advance();
                     continue;
                 }
@@ -321,7 +159,28 @@ impl<'g> Parser<'g> {
 
     pub(crate) fn parse(&mut self) -> Result<YamlNode, String> {
         // Don't skip comments at the root level - parse_value will handle them
-        let result = self.parse_value(0)?;
+        let mut result = self.parse_value(0)?;
+
+        // Collect any trailing comments at the end of the document
+        let mut trailing_comments = Vec::new();
+        while let Some(token) = self.current_token() {
+            match token.kind {
+                TokenKind::Comment => {
+                    trailing_comments.push(token.text.to_string());
+                    self.advance();
+                }
+                TokenKind::Whitespace | TokenKind::NewLine => {
+                    self.advance();
+                }
+                _ => break,
+            }
+        }
+
+        // Store trailing comments on the root node
+        if !trailing_comments.is_empty() {
+            result.trailing_comment = Some(trailing_comments.join("\n"));
+        }
+
         Ok(result)
     }
 
@@ -407,7 +266,7 @@ impl<'g> Parser<'g> {
                 // Pass the leading comment to parse_array for the first item
                 // Take ownership of the comment to avoid cloning
                 let value = self.parse_array(min_indent, leading_comment.take())?;
-                YamlNode::new(value)
+                YamlNode::from_value(value)
             }
             TokenKind::Identifier => {
                 let text = token.text;
@@ -424,7 +283,7 @@ impl<'g> Parser<'g> {
                 }
 
                 // It's a scalar value - always treat as string
-                YamlNode::new(YamlValue::String(text.to_string()))
+                YamlNode::from_value(YamlValue::String(text.to_string()))
             }
             TokenKind::String => {
                 let text = token.text;
@@ -434,7 +293,7 @@ impl<'g> Parser<'g> {
                     text
                 };
                 self.advance();
-                YamlNode::new(YamlValue::String(content.to_string()))
+                YamlNode::from_value(YamlValue::String(content.to_string()))
             }
             TokenKind::Whitespace
             | TokenKind::NewLine
@@ -805,7 +664,7 @@ impl<'g> Parser<'g> {
             result
         };
 
-        Ok(YamlNode::new(YamlValue::String(result)))
+        Ok(YamlNode::from_value(YamlValue::String(result)))
     }
 
     fn parse_object(
@@ -819,7 +678,6 @@ impl<'g> Parser<'g> {
         while let Some(_token) = self.current_token() {
             // Handle any leading comments before the key - always collect consistently
             let mut leading_comment = self.collect_consecutive_comments();
-
 
             // For the first key, prefer the initial comment if provided and no comment was collected
             if first_key {
@@ -925,7 +783,7 @@ impl<'g> Parser<'g> {
             }
         }
 
-        Ok(YamlNode::new(YamlValue::Object(object)))
+        Ok(YamlNode::from_value(YamlValue::Object(object)))
     }
 }
 

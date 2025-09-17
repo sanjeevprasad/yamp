@@ -39,8 +39,9 @@
 mod emitter;
 mod lexer;
 mod parser;
+mod types;
 
-pub use parser::{YamlNode, YamlObject, YamlValue};
+pub use types::{YamlNode, YamlObject, YamlValue};
 
 use emitter::Emitter;
 use parser::Parser;

@@ -1,6 +1,6 @@
 #![deny(clippy::all)]
 
-use yamp::{parse, emit, YamlNode, YamlObject, YamlValue};
+use yamp::{emit, parse, YamlNode, YamlObject, YamlValue};
 
 #[test]
 fn test_parse_preserves_key_order() {
@@ -26,9 +26,18 @@ banana: fourth"#;
 fn test_emit_preserves_key_order() {
     // Manually construct object with specific order
     let mut obj = YamlObject::new();
-    obj.insert("zoo".to_string(), YamlNode::from_value(YamlValue::String("1".to_string())));
-    obj.insert("apple".to_string(), YamlNode::from_value(YamlValue::String("2".to_string())));
-    obj.insert("middle".to_string(), YamlNode::from_value(YamlValue::String("3".to_string())));
+    obj.insert(
+        "zoo".to_string(),
+        YamlNode::from_value(YamlValue::String("1".to_string())),
+    );
+    obj.insert(
+        "apple".to_string(),
+        YamlNode::from_value(YamlValue::String("2".to_string())),
+    );
+    obj.insert(
+        "middle".to_string(),
+        YamlNode::from_value(YamlValue::String("3".to_string())),
+    );
 
     let node = YamlNode::from_value(YamlValue::Object(obj));
     let emitted = emit(&node);
