@@ -126,7 +126,6 @@ impl<'g> Parser<'g> {
         // Collect all comments before any non-comment content, being flexible about indentation
         let mut leading_comments: Vec<String> = Vec::new();
 
-
         // Look for consecutive comment lines, respecting blank lines
         while let Some(token) = self.current_token() {
             if token.kind != TokenKind::Comment {
@@ -456,11 +455,23 @@ impl<'g> Parser<'g> {
                 break;
             };
 
-            if token.kind == TokenKind::NewLine {
-                self.advance();
-                self.skip_whitespace_and_newlines();
-            } else if token.kind != TokenKind::Hyphen {
-                break;
+            match token.kind {
+                TokenKind::NewLine => {
+                    self.advance();
+                    self.skip_whitespace_and_newlines();
+                }
+                TokenKind::Hyphen => {
+                    // Continue loop to process next array item
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Whitespace
+                | TokenKind::Comment
+                | TokenKind::Indent
+                | TokenKind::Dedent
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => break,
             }
         }
 
@@ -525,17 +536,25 @@ impl<'g> Parser<'g> {
                 }
             }
 
-            // Skip whitespace but track indentation
-            if token.kind == TokenKind::Whitespace || token.kind == TokenKind::Indent {
-                self.advance();
-                continue;
-            }
-
-            // If it's a newline, add an empty line
-            if token.kind == TokenKind::NewLine {
-                lines.push(String::new());
-                self.advance();
-                continue;
+            // Skip whitespace but track indentation, handle newlines
+            match token.kind {
+                TokenKind::Whitespace | TokenKind::Indent => {
+                    self.advance();
+                    continue;
+                }
+                TokenKind::NewLine => {
+                    lines.push(String::new());
+                    self.advance();
+                    continue;
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Hyphen
+                | TokenKind::Comment
+                | TokenKind::Dedent
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => {}
             }
 
             // Check indentation
@@ -670,7 +689,10 @@ impl<'g> Parser<'g> {
             // Debug: show what we found
             if let Some(token) = self.current_token() {
                 if token.kind == TokenKind::Identifier {
-                    eprintln!("DEBUG parse_object: key '{}' collected comment: {:?}", token.text, leading_comment);
+                    eprintln!(
+                        "DEBUG parse_object: key '{}' collected comment: {:?}",
+                        token.text, leading_comment
+                    );
                 }
             }
 
@@ -723,20 +745,33 @@ impl<'g> Parser<'g> {
                 return Err("Expected value after colon".to_string());
             };
 
-            let mut value = if token.kind == TokenKind::Pipe || token.kind == TokenKind::GreaterThan
-            {
-                // Multiline string indicator
-                let is_literal = token.kind == TokenKind::Pipe;
-                self.advance(); // consume | or >
-                self.parse_multiline_string(key_column, is_literal)?
-            } else if token.kind == TokenKind::NewLine || token.kind == TokenKind::Indent {
-                // Value is on next line
-                self.skip_whitespace_and_newlines();
-                // Use key_column as the new min_indent for nested values
-                self.parse_value(key_column)?
-            } else {
-                // Value is on same line - collect until newline
-                self.parse_inline_value()?
+            let mut value = match token.kind {
+                TokenKind::Pipe => {
+                    // Literal multiline string indicator
+                    self.advance(); // consume |
+                    self.parse_multiline_string(key_column, true)?
+                }
+                TokenKind::GreaterThan => {
+                    // Folded multiline string indicator
+                    self.advance(); // consume >
+                    self.parse_multiline_string(key_column, false)?
+                }
+                TokenKind::NewLine | TokenKind::Indent => {
+                    // Value is on next line
+                    self.skip_whitespace_and_newlines();
+                    // Use key_column as the new min_indent for nested values
+                    self.parse_value(key_column)?
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Whitespace
+                | TokenKind::Hyphen
+                | TokenKind::Comment
+                | TokenKind::Dedent => {
+                    // Value is on same line - collect until newline
+                    self.parse_inline_value()?
+                }
             };
 
             // Apply leading comment to the value node if we collected one

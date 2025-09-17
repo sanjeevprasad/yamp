@@ -417,7 +417,9 @@ next: value"#;
     };
 
     let original_next = map.get("next").expect("next not found");
-    let reparsed_next = reparsed_map.get("next").expect("next not found in reparsed");
+    let reparsed_next = reparsed_map
+        .get("next")
+        .expect("next not found in reparsed");
 
     assert_eq!(
         original_next.leading_comment, reparsed_next.leading_comment,

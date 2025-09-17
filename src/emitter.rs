@@ -56,7 +56,12 @@ impl Emitter {
         self.emit_node_with_comment_control(node, inline, true);
     }
 
-    fn emit_node_with_comment_control(&mut self, node: &YamlNode, inline: bool, emit_leading_comment: bool) {
+    fn emit_node_with_comment_control(
+        &mut self,
+        node: &YamlNode,
+        inline: bool,
+        emit_leading_comment: bool,
+    ) {
         // Write leading comment if present and requested
         if !inline && emit_leading_comment {
             if let Some(ref comment) = node.leading_comment {
