@@ -51,7 +51,7 @@ jobs:
             archive: tar.gz
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -92,7 +92,7 @@ jobs:
     needs: build-and-upload
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Rust stable
         uses: actions-rust-lang/setup-rust-toolchain@v1
