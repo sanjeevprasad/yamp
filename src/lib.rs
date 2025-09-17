@@ -21,6 +21,12 @@
 //! let yaml = "name: John\nage: 30";
 //! let parsed = parse(yaml).expect("Failed to parse");
 //!
+//! // Using the new helper methods for cleaner access
+//! if let Some(name) = parsed.get("name").and_then(|n| n.as_str()) {
+//!     assert_eq!(name, "John");
+//! }
+//!
+//! // Or using the traditional approach
 //! if let YamlValue::Object(map) = &parsed.value {
 //!     let age = &map.get(&Cow::Borrowed("age")).unwrap().value;
 //!     // Note: age is a string "30", not a number

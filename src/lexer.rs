@@ -11,7 +11,7 @@ pub(crate) enum TokenKind {
     Comment,
     Indent,
     Dedent,
-    Pipe,       // | for literal multiline
+    Pipe,        // | for literal multiline
     GreaterThan, // > for folded multiline
 }
 

@@ -4,7 +4,6 @@ use std::borrow::Cow;
 use std::collections::BTreeMap;
 use yamp::{YamlNode, YamlValue, emit, parse};
 
-
 #[test]
 fn test_simple_construction() {
     let mut root = BTreeMap::new();

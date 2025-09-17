@@ -1,7 +1,7 @@
 #![deny(clippy::all)]
 
 use std::borrow::Cow;
-use yamp::{emit, parse, YamlValue};
+use yamp::{YamlValue, emit, parse};
 
 #[test]
 fn test_multiline_round_trip() {
@@ -24,10 +24,14 @@ other: value
 
     // Check that the description values match
     if let YamlValue::Object(map1) = &parsed.value
-        && let YamlValue::Object(map2) = &reparsed.value {
+        && let YamlValue::Object(map2) = &reparsed.value
+    {
         let desc1 = &map1.get(&Cow::Borrowed("description")).unwrap().value;
         let desc2 = &map2.get(&Cow::Borrowed("description")).unwrap().value;
-        assert_eq!(desc1, desc2, "Description values don't match after round-trip");
+        assert_eq!(
+            desc1, desc2,
+            "Description values don't match after round-trip"
+        );
 
         let other1 = &map1.get(&Cow::Borrowed("other")).unwrap().value;
         let other2 = &map2.get(&Cow::Borrowed("other")).unwrap().value;
@@ -42,9 +46,10 @@ fn test_quoted_string_with_escaped_newline() {
     let parsed = parse(yaml).expect("Failed to parse quoted string with escaped newlines");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            // The \n should be preserved as literal text, not interpreted
-            assert_eq!(s.as_ref(), "Line 1\\nLine 2\\nLine 3");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        // The \n should be preserved as literal text, not interpreted
+        assert_eq!(s.as_ref(), "Line 1\\nLine 2\\nLine 3");
     }
 }
 
@@ -57,9 +62,13 @@ and even a third line""#;
     let parsed = parse(yaml).expect("Failed to parse quoted string across lines");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            // Actual newlines in quoted strings should be preserved
-            assert_eq!(s.as_ref(), "This is a string\nthat continues on the next line\nand even a third line");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        // Actual newlines in quoted strings should be preserved
+        assert_eq!(
+            s.as_ref(),
+            "This is a string\nthat continues on the next line\nand even a third line"
+        );
     }
 }
 
@@ -75,8 +84,12 @@ description: |
     let parsed = parse(yaml).expect("Failed to parse literal multiline");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            assert_eq!(s.as_ref(), "This is a multiline string\nthat preserves line breaks.\n");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        assert_eq!(
+            s.as_ref(),
+            "This is a multiline string\nthat preserves line breaks.\n"
+        );
     }
 }
 
@@ -92,8 +105,12 @@ description: >
     let parsed = parse(yaml).expect("Failed to parse folded multiline");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            assert_eq!(s.as_ref(), "This is a folded multiline string that joins lines together.\n");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        assert_eq!(
+            s.as_ref(),
+            "This is a folded multiline string that joins lines together.\n"
+        );
     }
 }
 
@@ -110,8 +127,9 @@ description: |-
     let parsed = parse(yaml).expect("Failed to parse literal with strip chomp");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            assert_eq!(s.as_ref(), "Line 1\nLine 2");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        assert_eq!(s.as_ref(), "Line 1\nLine 2");
     }
 }
 
@@ -128,10 +146,11 @@ description: |+
     let parsed = parse(yaml).expect("Failed to parse literal with keep chomp");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            // Note: our current implementation doesn't capture trailing blank lines
-            // This is a known limitation we can improve later
-            assert_eq!(s.as_ref(), "Line 1\nLine 2\n");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        // Note: our current implementation doesn't capture trailing blank lines
+        // This is a known limitation we can improve later
+        assert_eq!(s.as_ref(), "Line 1\nLine 2\n");
     }
 }
 
@@ -148,8 +167,9 @@ description: >-
     let parsed = parse(yaml).expect("Failed to parse folded with strip chomp");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value {
-            assert_eq!(s.as_ref(), "This is a folded multiline string.");
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("description")).unwrap().value
+    {
+        assert_eq!(s.as_ref(), "This is a folded multiline string.");
     }
 }
 
@@ -165,10 +185,11 @@ And YAMP is too!"
     let parsed = parse(yaml).expect("Failed to parse multiline quoted string");
 
     if let YamlValue::Object(map) = &parsed.value
-        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("poem")).unwrap().value {
-            assert_eq!(
-                s.as_ref(),
-                "Roses are red,\nViolets are blue,\nYAML is simple,\nAnd YAMP is too!"
-            );
+        && let YamlValue::String(s) = &map.get(&Cow::Borrowed("poem")).unwrap().value
+    {
+        assert_eq!(
+            s.as_ref(),
+            "Roses are red,\nViolets are blue,\nYAML is simple,\nAnd YAMP is too!"
+        );
     }
 }

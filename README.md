@@ -98,24 +98,17 @@ permissions: 0755
     // Parse YAML
     let parsed = parse(yaml).expect("Failed to parse YAML");
 
-    // ALL values are strings - no type confusion!
+    // Easy access with helper methods
+    assert_eq!(parsed.get("age").and_then(|n| n.as_str()), Some("30"));
+    assert_eq!(parsed.get("active").and_then(|n| n.as_str()), Some("true"));
+    assert_eq!(parsed.get("version").and_then(|n| n.as_str()), Some("3.10")); // Not 3.1!
+    assert_eq!(parsed.get("country").and_then(|n| n.as_str()), Some("NO")); // Not false!
+    assert_eq!(parsed.get("permissions").and_then(|n| n.as_str()), Some("0755")); // Not 493!
+
+    // Or using traditional approach for more control
     if let YamlValue::Object(map) = &parsed.value {
         let age = &map.get(&Cow::Borrowed("age")).unwrap().value;
         assert_eq!(age, &YamlValue::String(Cow::Borrowed("30")));
-
-        let active = &map.get(&Cow::Borrowed("active")).unwrap().value;
-        assert_eq!(active, &YamlValue::String(Cow::Borrowed("true")));
-
-        let version = &map.get(&Cow::Borrowed("version")).unwrap().value;
-        assert_eq!(version, &YamlValue::String(Cow::Borrowed("3.10"))); // Not 3.1!
-
-        // No "Norway problem" - NO is a string, not false
-        let country = &map.get(&Cow::Borrowed("country")).unwrap().value;
-        assert_eq!(country, &YamlValue::String(Cow::Borrowed("NO")));
-
-        // No octal confusion - 0755 stays as "0755"
-        let perms = &map.get(&Cow::Borrowed("permissions")).unwrap().value;
-        assert_eq!(perms, &YamlValue::String(Cow::Borrowed("0755")));
     }
 
     // Emit back to YAML

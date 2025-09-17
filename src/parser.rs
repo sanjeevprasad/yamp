@@ -52,6 +52,63 @@ impl<'a> YamlNode<'a> {
             inline_comment: None,
         }
     }
+
+    // Helper methods for ergonomic value access
+
+    /// Returns the string value if this node contains a string
+    pub fn as_str(&self) -> Option<&str> {
+        match &self.value {
+            YamlValue::String(s) => Some(s.as_ref()),
+            _ => None,
+        }
+    }
+
+    /// Returns the object map if this node contains an object
+    pub fn as_object(&self) -> Option<&BTreeMap<Cow<'a, str>, YamlNode<'a>>> {
+        match &self.value {
+            YamlValue::Object(map) => Some(map),
+            _ => None,
+        }
+    }
+
+    /// Returns the array items if this node contains an array
+    pub fn as_array(&self) -> Option<&[YamlNode<'a>]> {
+        match &self.value {
+            YamlValue::Array(items) => Some(items),
+            _ => None,
+        }
+    }
+
+    /// Gets a child node by key if this node is an object
+    pub fn get(&self, key: &str) -> Option<&YamlNode<'a>> {
+        match &self.value {
+            YamlValue::Object(map) => {
+                // Try to find the key in the map
+                for (k, v) in map.iter() {
+                    if k.as_ref() == key {
+                        return Some(v);
+                    }
+                }
+                None
+            }
+            _ => None,
+        }
+    }
+
+    /// Returns true if this node is a string
+    pub fn is_string(&self) -> bool {
+        matches!(&self.value, YamlValue::String(_))
+    }
+
+    /// Returns true if this node is an object
+    pub fn is_object(&self) -> bool {
+        matches!(&self.value, YamlValue::Object(_))
+    }
+
+    /// Returns true if this node is an array
+    pub fn is_array(&self) -> bool {
+        matches!(&self.value, YamlValue::Array(_))
+    }
 }
 
 pub(crate) struct Parser<'g> {
@@ -305,7 +362,11 @@ impl<'g> Parser<'g> {
         Ok(YamlValue::Array(items))
     }
 
-    fn parse_multiline_string(&mut self, base_indent: usize, is_literal: bool) -> Result<YamlNode<'g>, String> {
+    fn parse_multiline_string(
+        &mut self,
+        base_indent: usize,
+        is_literal: bool,
+    ) -> Result<YamlNode<'g>, String> {
         // Skip any remaining whitespace and comments on the same line
         self.skip_whitespace();
 
@@ -346,7 +407,10 @@ impl<'g> Parser<'g> {
                 let mut peek_index = self.current + 1;
                 while peek_index < self.tokens.len() {
                     let peek_token = &self.tokens[peek_index];
-                    if peek_token.kind != TokenKind::Whitespace && peek_token.kind != TokenKind::Indent && peek_token.kind != TokenKind::Dedent {
+                    if peek_token.kind != TokenKind::Whitespace
+                        && peek_token.kind != TokenKind::Indent
+                        && peek_token.kind != TokenKind::Dedent
+                    {
                         if peek_token.column <= base_indent {
                             break;
                         }
@@ -400,7 +464,8 @@ impl<'g> Parser<'g> {
             lines.push(line_text.leak()); // Convert to &'static str for simplicity
 
             if let Some(token) = self.current_token()
-                && token.kind == TokenKind::NewLine {
+                && token.kind == TokenKind::NewLine
+            {
                 self.advance();
             }
         }
