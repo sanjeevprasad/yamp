@@ -59,7 +59,7 @@ impl<'a> YamlNode<'a> {
     pub fn as_str(&self) -> Option<&str> {
         match &self.value {
             YamlValue::String(s) => Some(s.as_ref()),
-            _ => None,
+            YamlValue::Array(_) | YamlValue::Object(_) => None,
         }
     }
 
@@ -67,7 +67,7 @@ impl<'a> YamlNode<'a> {
     pub fn as_object(&self) -> Option<&BTreeMap<Cow<'a, str>, YamlNode<'a>>> {
         match &self.value {
             YamlValue::Object(map) => Some(map),
-            _ => None,
+            YamlValue::String(_) | YamlValue::Array(_) => None,
         }
     }
 
@@ -75,7 +75,7 @@ impl<'a> YamlNode<'a> {
     pub fn as_array(&self) -> Option<&[YamlNode<'a>]> {
         match &self.value {
             YamlValue::Array(items) => Some(items),
-            _ => None,
+            YamlValue::String(_) | YamlValue::Object(_) => None,
         }
     }
 
@@ -91,7 +91,7 @@ impl<'a> YamlNode<'a> {
                 }
                 None
             }
-            _ => None,
+            YamlValue::String(_) | YamlValue::Array(_) => None,
         }
     }
 
@@ -174,14 +174,13 @@ impl<'g> Parser<'g> {
 
     fn collect_comment(&mut self) -> Option<Cow<'g, str>> {
         self.skip_whitespace();
-        if let Some(token) = self.current_token() {
-            if token.kind == TokenKind::Comment {
-                let comment = token.text.trim_start_matches('#').trim();
-                self.advance();
-                return Some(Cow::Borrowed(comment));
-            }
+        let token = self.current_token()?;
+        if token.kind != TokenKind::Comment {
+            return None;
         }
-        None
+        let comment = token.text.trim_start_matches('#').trim();
+        self.advance();
+        Some(Cow::Borrowed(comment))
     }
 
     fn parse_value(&mut self, min_indent: usize) -> Result<YamlNode<'g>, String> {
@@ -382,7 +381,7 @@ impl<'g> Parser<'g> {
                     chomp_mode = ChompMode::Keep;
                     self.advance();
                 }
-                _ => {}
+                _other => {}
             }
         }
 

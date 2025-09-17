@@ -78,7 +78,7 @@ pub fn parse(yaml: &str) -> Result<YamlNode<'_>, String> {
 /// let output = emit(&parsed);
 /// assert!(output.contains("name: John"));
 /// ```
-pub fn emit<'a>(node: &YamlNode<'a>) -> String {
+pub fn emit(node: &YamlNode<'_>) -> String {
     let mut emitter = Emitter::new();
     emitter.emit(node)
 }

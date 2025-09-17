@@ -238,7 +238,7 @@ impl<'g> Lexer<'g> {
                     self.column += 1;
                     at_line_start = false;
                 }
-                _ => {
+                _other_char => {
                     self.current += 1;
                     self.column += 1;
                 }
@@ -274,7 +274,7 @@ impl<'g> Lexer<'g> {
                     end = index + 1;
                     self.chars.next();
                 }
-                _ => break,
+                _other => break,
             }
         }
         (indent_level, end)
@@ -289,13 +289,20 @@ impl<'g> Lexer<'g> {
     ) {
         let current_indent = *self.indent_stack.last().unwrap();
 
-        if new_indent > current_indent {
-            self.indent_stack.push(new_indent);
-            tokens.push(Token::new(TokenKind::Indent, "", line, column));
-        } else if new_indent < current_indent {
-            while self.indent_stack.len() > 1 && *self.indent_stack.last().unwrap() > new_indent {
-                self.indent_stack.pop();
-                tokens.push(Token::new(TokenKind::Dedent, "", line, column));
+        use std::cmp::Ordering;
+        match new_indent.cmp(&current_indent) {
+            Ordering::Greater => {
+                self.indent_stack.push(new_indent);
+                tokens.push(Token::new(TokenKind::Indent, "", line, column));
+            }
+            Ordering::Less => {
+                while self.indent_stack.len() > 1 && *self.indent_stack.last().unwrap() > new_indent {
+                    self.indent_stack.pop();
+                    tokens.push(Token::new(TokenKind::Dedent, "", line, column));
+                }
+            }
+            Ordering::Equal => {
+                // No change in indentation, do nothing
             }
         }
     }
@@ -350,7 +357,7 @@ impl<'g> Lexer<'g> {
                 match temp.peek() {
                     Some(&(_, ':' | '#' | '\n')) => break,
                     None => break, // End of input
-                    _ => {}        // Continue, whitespace is part of value
+                    _other => {}        // Continue, whitespace is part of value
                 }
             }
 

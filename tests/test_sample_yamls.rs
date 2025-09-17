@@ -120,12 +120,16 @@ fn test_specific_sample_files() {
         let entry = entry.expect("Failed to read directory entry");
         let path = entry.path();
 
-        if path.is_file() {
-            if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                if critical_files.contains(&file_name) {
-                    found_files.push(path);
-                }
-            }
+        if !path.is_file() {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        if critical_files.contains(&file_name) {
+            found_files.push(path);
         }
     }
 
@@ -183,19 +187,24 @@ fn test_real_world_configs() {
         let entry = entry.expect("Failed to read directory entry");
         let path = entry.path();
 
-        if path.is_file() {
-            if let Some(extension) = path.extension().and_then(|e| e.to_str()) {
-                if extension == "yaml" || extension == "yml" {
-                    if let Some(file_name) = path.file_name().and_then(|n| n.to_str()) {
-                        if real_world_patterns
-                            .iter()
-                            .any(|pattern| file_name.contains(pattern))
-                        {
-                            real_world_files.push(path);
-                        }
-                    }
-                }
-            }
+        if !path.is_file() {
+            continue;
+        }
+
+        let Some(extension) = path.extension().and_then(|e| e.to_str()) else {
+            continue;
+        };
+
+        if extension != "yaml" && extension != "yml" {
+            continue;
+        }
+
+        let Some(file_name) = path.file_name().and_then(|n| n.to_str()) else {
+            continue;
+        };
+
+        if real_world_patterns.iter().any(|pattern| file_name.contains(pattern)) {
+            real_world_files.push(path);
         }
     }
 

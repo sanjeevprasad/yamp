@@ -16,7 +16,7 @@ impl Emitter {
         }
     }
 
-    pub(crate) fn emit<'a>(&mut self, node: &YamlNode<'a>) -> String {
+    pub(crate) fn emit(&mut self, node: &YamlNode<'_>) -> String {
         self.output.clear(); // Clear previous content instead of creating new String
         self.emit_node(node, false);
         std::mem::take(&mut self.output) // Move instead of clone
@@ -47,7 +47,7 @@ impl Emitter {
         }
     }
 
-    fn emit_node<'a>(&mut self, node: &YamlNode<'a>, inline: bool) {
+    fn emit_node(&mut self, node: &YamlNode<'_>, inline: bool) {
         // Write leading comment if present
         if !inline {
             if let Some(ref comment) = node.leading_comment {
@@ -119,7 +119,7 @@ impl Emitter {
         }
     }
 
-    fn emit_array<'a>(&mut self, items: &[YamlNode<'a>]) {
+    fn emit_array(&mut self, items: &[YamlNode<'_>]) {
         for (i, item) in items.iter().enumerate() {
             if i > 0 {
                 self.output.push('\n');
@@ -213,7 +213,7 @@ impl Emitter {
         }
     }
 
-    fn emit_object<'a>(&mut self, node: &YamlNode<'a>) {
+    fn emit_object(&mut self, node: &YamlNode<'_>) {
         let YamlValue::Object(map) = &node.value else {
             return;
         };
@@ -392,7 +392,7 @@ mod tests {
 
         // Should emit as literal multiline string
         assert!(output.contains("description:"));
-        assert!(output.contains("|"));
+        assert!(output.contains('|'));
         assert!(output.contains("Line 1"));
         assert!(output.contains("Line 2"));
         assert!(output.contains("Line 3"));

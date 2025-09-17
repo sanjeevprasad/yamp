@@ -37,7 +37,7 @@ fn test_boolean_like_values_parse_as_strings() {
                     value
                 );
             }
-            _ => panic!(
+            YamlValue::Object(_) | YamlValue::Array(_) => panic!(
                 "Expected '{}' to be parsed as a string, got: {:?}",
                 value, parsed.value
             ),
@@ -132,7 +132,7 @@ fn test_case_sensitive_strings() {
             YamlValue::String(s) => {
                 assert_eq!(s.as_ref(), value);
             }
-            _ => panic!(
+            YamlValue::Object(_) | YamlValue::Array(_) => panic!(
                 "Expected '{}' to be parsed as a string, got: {:?}",
                 value, parsed.value
             ),

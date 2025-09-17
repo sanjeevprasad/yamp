@@ -8,17 +8,19 @@ fn test_simple_key_value() {
     let yaml = "key: value";
     let result = parse(yaml).expect("Failed to parse simple key-value");
 
-    if let YamlValue::Object(map) = &result.value {
-        assert_eq!(map.len(), 1);
-        assert!(map.contains_key(&Cow::Borrowed("key")));
-        if let YamlValue::String(s) = &map.get(&Cow::Borrowed("key")).unwrap().value {
-            assert_eq!(s.as_ref(), "value");
-        } else {
-            panic!("Expected string value");
-        }
-    } else {
-        panic!("Expected object at root");
-    }
+    let map = match &result.value {
+        YamlValue::Object(m) => m,
+        YamlValue::String(_) | YamlValue::Array(_) => panic!("Expected object at root, got {:?}", result.value),
+    };
+    assert_eq!(map.len(), 1);
+    assert!(map.contains_key(&Cow::Borrowed("key")));
+
+    let key_node = map.get(&Cow::Borrowed("key")).unwrap();
+    let s = match &key_node.value {
+        YamlValue::String(s) => s,
+        YamlValue::Object(_) | YamlValue::Array(_) => panic!("Expected string value, got {:?}", key_node.value),
+    };
+    assert_eq!(s.as_ref(), "value");
 }
 
 #[test]
