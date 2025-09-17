@@ -82,6 +82,134 @@ server:
 }
 ```
 
+#### Working with Comments Programmatically
+
+```rust
+use yamp::{parse, emit, YamlNode, YamlObject, YamlValue};
+
+fn main() {
+    // Create YAML with comments programmatically
+    let mut config = YamlObject::new()
+        .with("name", "MyApp")
+        .with("version", "1.2.3");
+
+    let mut node: YamlNode = config.into();
+
+    // Add a leading comment to the entire document
+    node = node.with_leading_comment("Auto-generated configuration file\nDo not edit manually!");
+
+    // Add a trailing comment (stored as inline_comment at root level)
+    node = node.with_inline_comment("End of configuration");
+
+    let yaml_string = emit(&node);
+    println!("{}", yaml_string);
+    /* Output:
+    # Auto-generated configuration file
+    # Do not edit manually!
+    name: MyApp
+    version: 1.2.3
+    # End of configuration
+    */
+}
+```
+
+#### Modifying YAML While Preserving Comments
+
+```rust
+use yamp::{parse, emit, YamlValue};
+
+fn main() {
+    let yaml = r#"# Database configuration
+# Production settings
+database:
+  # Primary database host
+  host: db.example.com
+  # Database name
+  name: production_db
+  # Connection pool size
+  pool_size: 10
+
+# API Settings
+api:
+  # API endpoint
+  endpoint: https://api.example.com
+  # Timeout in seconds
+  timeout: 30
+"#;
+
+    let mut parsed = parse(yaml).expect("Failed to parse");
+
+    // Modify values while preserving all comments
+    if let YamlValue::Object(ref mut root) = parsed.value {
+        if let Some(db_node) = root.get_mut("database") {
+            if let YamlValue::Object(ref mut db) = db_node.value {
+                // Update the host - comment is preserved!
+                if let Some(host) = db.get_mut("host") {
+                    host.value = YamlValue::String("new-db.example.com".to_string());
+                }
+                // Update pool size - comment is preserved!
+                if let Some(pool) = db.get_mut("pool_size") {
+                    pool.value = YamlValue::String("20".to_string());
+                }
+            }
+        }
+    }
+
+    let output = emit(&parsed);
+    println!("{}", output);
+    // All original comments are preserved, only values are updated
+}
+```
+
+#### Complex Comment Scenarios
+
+```rust
+use yamp::{parse, emit};
+
+fn main() {
+    let yaml = r#"# Application metadata
+
+# General settings
+general:
+  # Application name and version
+  name: MyApp  # Internal name
+  version: 1.0.0  # Semantic versioning
+
+  # Feature flags
+  features:
+    # Enable experimental features
+    - experimental  # Use with caution
+    # Enable debug mode
+    - debug  # Only in development
+    # Enable metrics collection
+    - metrics
+
+# Database configuration
+database:
+  # Connection settings
+  connections:
+    # Primary database
+    - host: primary.db
+      port: 5432  # PostgreSQL default
+    # Read replica
+    - host: replica.db
+      port: 5432  # Same port as primary
+
+# End of configuration file
+# Generated on 2024-01-01"#;
+
+    let parsed = parse(yaml).expect("Failed to parse");
+    let output = emit(&parsed);
+
+    // All comments are preserved:
+    // - Leading comments before sections
+    // - Inline comments after values
+    // - Comments within arrays
+    // - Trailing comments at the end
+    println!("{}", output);
+}
+```
+
 ### String-Only Values
 
 All values are treated as strings, avoiding YAML's type confusion:
@@ -183,12 +311,68 @@ If you need typed data, parse the strings in your application where you have ful
 - **Portable**: Same behavior across all systems
 - **Simple**: One rule to remember
 
+## Comment Handling Pitfalls
+
+While YAMP preserves comments better than most YAML parsers, there are some limitations to be aware of:
+
+### 1. Trailing Comments at Document Root
+Trailing comments at the end of the document are stored in the root node's `inline_comment` field rather than a separate `trailing_comment` field. This means:
+- At the root level, `inline_comment` serves dual purpose
+- When emitting, root-level inline comments appear at the end of the document
+- This is a design choice to keep the API simple
+
+### 2. Comment Association
+Comments are associated with the nearest following key or value:
+```yaml
+# This comment belongs to 'name'
+name: John
+
+# This comment belongs to 'age'
+age: 30
+```
+
+Ambiguous cases:
+```yaml
+name: John
+# Is this a trailing comment for 'name' or leading comment for 'age'?
+age: 30
+```
+YAMP associates such comments with the following key ('age' in this example).
+
+### 3. Multi-line Comment Blocks
+Consecutive comment lines are combined with newlines:
+```yaml
+# First line
+# Second line
+# Third line
+key: value
+```
+The leading comment for 'key' will be: `"First line\nSecond line\nThird line"`
+
+### 4. Inline Comments on Complex Values
+Inline comments on array or object values are preserved but may not round-trip perfectly in all cases:
+```yaml
+server: # This inline comment is preserved
+  host: localhost
+  port: 8080
+```
+
+### 5. Comments in Arrays
+Comments within arrays are associated with individual array items:
+```yaml
+fruits:
+  # Comment for apple
+  - apple
+  # Comment for banana
+  - banana
+```
+
 ## Design Decisions
 
 - **Comment preservation**: Comments are treated as first-class citizens, not discarded metadata
 - **No implicit typing**: All scalar values are strings to avoid confusion and bugs
 - **Simplicity over completeness**: Only the most common YAML features are supported
-- **Round-trip fidelity**: Parse and emit cycles preserve structure and comments
+- **Round-trip fidelity**: Parse and emit cycles preserve structure and comments (with the caveats above)
 - **Performance**: Efficient parsing with minimal allocations
 - **Error messages**: Clear, helpful error messages for debugging
 - **No external dependencies**: Pure Rust implementation

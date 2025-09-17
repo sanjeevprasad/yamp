@@ -526,6 +526,7 @@ fn test_empty_file_with_only_comments() {
     // It's also acceptable to return an error for a file with no content
 }
 
+
 #[test]
 fn test_trailing_comment_round_trip() {
     let yaml = r#"name: John Doe

@@ -18,10 +18,13 @@ impl Emitter {
 
     pub(crate) fn emit(&mut self, node: &YamlNode) -> String {
         self.output.clear(); // Clear previous content instead of creating new String
-        self.emit_node(node, false);
 
-        // Emit trailing comments at the end of the document
-        if let Some(ref trailing) = node.trailing_comment {
+        // Emit the node content without inline comments (they'll be handled as trailing)
+        self.emit_node_without_inline_comment(node, false);
+
+        // For root-level nodes, inline comments are treated as trailing comments
+        // and emitted at the end of the document
+        if let Some(ref trailing) = node.inline_comment {
             if !self.output.is_empty() && !self.output.ends_with('\n') {
                 self.output.push('\n');
             }
@@ -67,11 +70,26 @@ impl Emitter {
         self.emit_node_with_comment_control(node, inline, true);
     }
 
+    fn emit_node_without_inline_comment(&mut self, node: &YamlNode, inline: bool) {
+        // Emit with inline comments suppressed (used at root level)
+        self.emit_node_with_comment_control_internal(node, inline, true, false);
+    }
+
     fn emit_node_with_comment_control(
         &mut self,
         node: &YamlNode,
         inline: bool,
         emit_leading_comment: bool,
+    ) {
+        self.emit_node_with_comment_control_internal(node, inline, emit_leading_comment, true);
+    }
+
+    fn emit_node_with_comment_control_internal(
+        &mut self,
+        node: &YamlNode,
+        inline: bool,
+        emit_leading_comment: bool,
+        emit_inline_comment: bool,
     ) {
         // Write leading comment if present and requested
         if !inline && emit_leading_comment {
@@ -99,8 +117,8 @@ impl Emitter {
             }
         }
 
-        // Write inline comment if present
-        if inline {
+        // Write inline comment if present and requested
+        if inline && emit_inline_comment {
             if let Some(ref comment) = node.inline_comment {
                 self.write_comment(comment, true);
             }

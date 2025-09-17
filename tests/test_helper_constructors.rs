@@ -59,15 +59,13 @@ fn test_from_option() {
 fn test_comment_builders() {
     let node = YamlNode::from("test")
         .with_leading_comment("This is a leading comment")
-        .with_inline_comment("This is inline")
-        .with_trailing_comment("This is trailing");
+        .with_inline_comment("This is inline");
 
     assert_eq!(
         node.leading_comment,
         Some("This is a leading comment".to_string())
     );
     assert_eq!(node.inline_comment, Some("This is inline".to_string()));
-    assert_eq!(node.trailing_comment, Some("This is trailing".to_string()));
 }
 
 #[test]
@@ -125,16 +123,9 @@ age: 30
 
     let parsed = parse(yaml).expect("Failed to parse");
 
-    // Debug output
-    eprintln!(
-        "Parsed value type: {:?}",
-        std::mem::discriminant(&parsed.value)
-    );
-    eprintln!("Trailing comment: {:?}", parsed.trailing_comment);
-
-    // Check that trailing comment was captured
+    // Check that trailing comment was captured in inline_comment
     assert_eq!(
-        parsed.trailing_comment,
+        parsed.inline_comment,
         Some("This is a trailing comment at the bottom".to_string())
     );
 }
@@ -145,7 +136,7 @@ fn test_trailing_comment_emitted() {
         .with_string("name", "John")
         .with_string("age", "30")
         .into();
-    let node = node.with_trailing_comment("This is a trailing comment");
+    let node = node.with_inline_comment("This is a trailing comment");
 
     let emitted = emit(&node);
 

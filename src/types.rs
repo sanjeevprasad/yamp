@@ -1,12 +1,16 @@
 use std::collections::BTreeMap;
 
 /// Represents a YAML value with associated comments
+///
+/// Comments are stored as follows:
+/// - `leading_comment`: Comments that appear before this node
+/// - `inline_comment`: Comments that appear on the same line as this node,
+///   or for root-level nodes, trailing comments at the end of the document
 #[derive(Debug, Clone, PartialEq)]
 pub struct YamlNode {
     pub value: YamlValue,
     pub leading_comment: Option<String>,
     pub inline_comment: Option<String>,
-    pub trailing_comment: Option<String>,
 }
 
 /// Order-preserving YAML object structure
@@ -29,7 +33,6 @@ impl YamlNode {
             value,
             leading_comment: None,
             inline_comment: None,
-            trailing_comment: None,
         }
     }
 
@@ -43,10 +46,6 @@ impl YamlNode {
         self
     }
 
-    pub fn with_trailing_comment<S: Into<String>>(mut self, comment: S) -> Self {
-        self.trailing_comment = Some(comment.into());
-        self
-    }
 
     pub fn as_str(&self) -> Option<&str> {
         match &self.value {
@@ -107,7 +106,6 @@ impl YamlNode {
             value,
             leading_comment: leading,
             inline_comment: inline,
-            trailing_comment: None,
         }
     }
 }

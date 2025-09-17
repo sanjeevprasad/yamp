@@ -21,6 +21,14 @@ impl<'g> Parser<'g> {
     }
 
     fn collect_consecutive_comments(&mut self) -> Option<String> {
+        self.collect_consecutive_comments_internal(false)
+    }
+
+    fn collect_consecutive_comments_check_identifier(&mut self) -> Option<String> {
+        self.collect_consecutive_comments_internal(true)
+    }
+
+    fn collect_consecutive_comments_internal(&mut self, check_for_identifier: bool) -> Option<String> {
         let mut leading_comments: Vec<String> = Vec::new();
 
         // First, look backward to find any comments that should be associated with this position
@@ -117,7 +125,47 @@ impl<'g> Parser<'g> {
                     continue;
                 }
                 TokenKind::Comment => {
-                    leading_comments.push(token.text.trim_start_matches('#').trim().to_string());
+                    // Store comment text before any position changes
+                    let comment_text = token.text.trim_start_matches('#').trim().to_string();
+
+                    // If we should check for identifier, look ahead before consuming the comment
+                    if check_for_identifier {
+                        let saved_pos = self.current;
+                        self.advance(); // Skip the comment
+
+                        // Continue consuming comments and whitespace to find what follows
+                        loop {
+                            match self.current_token() {
+                                Some(t) if t.kind == TokenKind::Comment => {
+                                    self.advance();
+                                }
+                                Some(t) if t.kind == TokenKind::Whitespace
+                                        || t.kind == TokenKind::NewLine
+                                        || t.kind == TokenKind::Indent
+                                        || t.kind == TokenKind::Dedent => {
+                                    self.advance();
+                                }
+                                _ => break
+                            }
+                        }
+
+                        // Check if there's an identifier next
+                        let has_identifier = if let Some(next) = self.current_token() {
+                            next.kind == TokenKind::Identifier
+                        } else {
+                            false
+                        };
+
+                        // Restore position
+                        self.current = saved_pos;
+
+                        // If no identifier follows, don't consume this comment
+                        if !has_identifier {
+                            break;
+                        }
+                    }
+
+                    leading_comments.push(comment_text);
                     self.advance();
 
                     // Skip whitespace after comment
@@ -162,23 +210,29 @@ impl<'g> Parser<'g> {
         let mut result = self.parse_value(0)?;
 
         // Collect any trailing comments at the end of the document
+        self.skip_whitespace_and_newlines();
         let mut trailing_comments = Vec::new();
+
         while let Some(token) = self.current_token() {
             match token.kind {
                 TokenKind::Comment => {
-                    trailing_comments.push(token.text.to_string());
+                    let comment_text = token.text.trim_start_matches('#').trim();
+                    trailing_comments.push(comment_text.to_string());
                     self.advance();
-                }
-                TokenKind::Whitespace | TokenKind::NewLine => {
-                    self.advance();
+                    self.skip_whitespace_and_newlines();
                 }
                 _ => break,
             }
         }
 
-        // Store trailing comments on the root node
+        // Store trailing comments in inline_comment at the root level
         if !trailing_comments.is_empty() {
-            result.trailing_comment = Some(trailing_comments.join("\n"));
+            // If there's already an inline comment, append the trailing comments
+            if let Some(existing) = result.inline_comment {
+                result.inline_comment = Some(format!("{}\n{}", existing, trailing_comments.join("\n")));
+            } else {
+                result.inline_comment = Some(trailing_comments.join("\n"));
+            }
         }
 
         Ok(result)
@@ -676,8 +730,8 @@ impl<'g> Parser<'g> {
         let mut first_key = true;
 
         while let Some(_token) = self.current_token() {
-            // Handle any leading comments before the key - always collect consistently
-            let mut leading_comment = self.collect_consecutive_comments();
+            // Handle any leading comments before the key - check for identifier to preserve trailing comments
+            let mut leading_comment = self.collect_consecutive_comments_check_identifier();
 
             // For the first key, prefer the initial comment if provided and no comment was collected
             if first_key {
@@ -687,7 +741,7 @@ impl<'g> Parser<'g> {
                 first_key = false;
             }
 
-            // After handling comments, check if we have a key
+            // After handling comments, we should have an identifier
             let Some(token) = self.current_token() else {
                 break;
             };
