@@ -1,5 +1,4 @@
 use crate::lexer::{Lexer, Token, TokenKind};
-use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy)]
 enum ChompMode {
@@ -8,11 +7,93 @@ enum ChompMode {
     Keep,  // + keep all trailing newlines
 }
 
+/// A YAML object that preserves insertion order
+#[derive(Debug, Clone, PartialEq)]
+pub struct YamlObject {
+    pairs: Vec<(String, YamlNode)>,
+}
+
+impl YamlObject {
+    pub fn new() -> Self {
+        YamlObject { pairs: Vec::new() }
+    }
+
+    pub fn insert(&mut self, key: String, value: YamlNode) {
+        // Check if key exists and update, otherwise append
+        for (k, v) in &mut self.pairs {
+            if k == &key {
+                *v = value;
+                return;
+            }
+        }
+        self.pairs.push((key, value));
+    }
+
+    pub fn get(&self, key: &str) -> Option<&YamlNode> {
+        self.pairs.iter().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    pub fn get_mut(&mut self, key: &str) -> Option<&mut YamlNode> {
+        self.pairs.iter_mut().find(|(k, _)| k == key).map(|(_, v)| v)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&String, &YamlNode)> {
+        self.pairs.iter().map(|(k, v)| (k, v))
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &String> {
+        self.pairs.iter().map(|(k, _)| k)
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &YamlNode> {
+        self.pairs.iter().map(|(_, v)| v)
+    }
+
+    pub fn len(&self) -> usize {
+        self.pairs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.pairs.is_empty()
+    }
+
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.pairs.iter().any(|(k, _)| k == key)
+    }
+}
+
+impl Default for YamlObject {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<'a> IntoIterator for &'a YamlObject {
+    type Item = (&'a String, &'a YamlNode);
+    type IntoIter = std::iter::Map<
+        std::slice::Iter<'a, (String, YamlNode)>,
+        fn(&'a (String, YamlNode)) -> (&'a String, &'a YamlNode),
+    >;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs.iter().map(|(k, v)| (k, v))
+    }
+}
+
+impl IntoIterator for YamlObject {
+    type Item = (String, YamlNode);
+    type IntoIter = std::vec::IntoIter<(String, YamlNode)>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.pairs.into_iter()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum YamlValue {
     String(String),
     Array(Vec<YamlNode>),
-    Object(BTreeMap<String, YamlNode>),
+    Object(YamlObject),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -62,10 +143,10 @@ impl YamlNode {
         }
     }
 
-    /// Returns the object map if this node contains an object
-    pub fn as_object(&self) -> Option<&BTreeMap<String, YamlNode>> {
+    /// Returns the object if this node contains an object
+    pub fn as_object(&self) -> Option<&YamlObject> {
         match &self.value {
-            YamlValue::Object(map) => Some(map),
+            YamlValue::Object(obj) => Some(obj),
             YamlValue::String(_) | YamlValue::Array(_) => None,
         }
     }
@@ -81,15 +162,7 @@ impl YamlNode {
     /// Gets a child node by key if this node is an object
     pub fn get(&self, key: &str) -> Option<&YamlNode> {
         match &self.value {
-            YamlValue::Object(map) => {
-                // Try to find the key in the map
-                for (k, v) in map.iter() {
-                    if k == key {
-                        return Some(v);
-                    }
-                }
-                None
-            }
+            YamlValue::Object(obj) => obj.get(key),
             YamlValue::String(_) | YamlValue::Array(_) => None,
         }
     }
@@ -740,7 +813,7 @@ impl<'g> Parser<'g> {
         min_indent: usize,
         mut initial_leading_comment: Option<String>,
     ) -> Result<YamlNode, String> {
-        let mut map = BTreeMap::new();
+        let mut object = YamlObject::new();
         let mut first_key = true;
 
         while let Some(_token) = self.current_token() {
@@ -832,7 +905,7 @@ impl<'g> Parser<'g> {
                 value.leading_comment = leading_comment;
             }
 
-            map.insert(key, value);
+            object.insert(key, value);
 
             self.skip_whitespace();
             if let Some(token) = self.current_token() {
@@ -852,7 +925,7 @@ impl<'g> Parser<'g> {
             }
         }
 
-        Ok(YamlNode::new(YamlValue::Object(map)))
+        Ok(YamlNode::new(YamlValue::Object(object)))
     }
 }
 

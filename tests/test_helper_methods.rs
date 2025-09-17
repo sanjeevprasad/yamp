@@ -2,8 +2,7 @@
 
 //! Tests specifically for YamlNode helper methods to ensure API stability
 
-use std::collections::BTreeMap;
-use yamp::{parse, YamlNode, YamlValue};
+use yamp::{parse, YamlNode, YamlObject, YamlValue};
 
 #[test]
 fn test_as_str_method() {
@@ -15,19 +14,19 @@ fn test_as_str_method() {
     let array_node = YamlNode::from_value(YamlValue::Array(vec![]));
     assert_eq!(array_node.as_str(), None);
 
-    let object_node = YamlNode::from_value(YamlValue::Object(BTreeMap::new()));
+    let object_node = YamlNode::from_value(YamlValue::Object(YamlObject::new()));
     assert_eq!(object_node.as_str(), None);
 }
 
 #[test]
 fn test_as_object_method() {
     // Test with actual object
-    let mut map = BTreeMap::new();
-    map.insert(
+    let mut obj = YamlObject::new();
+    obj.insert(
         "key".to_string(),
         YamlNode::from_value(YamlValue::String("value".to_string())),
     );
-    let object_node = YamlNode::from_value(YamlValue::Object(map));
+    let object_node = YamlNode::from_value(YamlValue::Object(obj));
     assert!(object_node.as_object().is_some());
     assert_eq!(object_node.as_object().unwrap().len(), 1);
 
@@ -55,23 +54,23 @@ fn test_as_array_method() {
     let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert_eq!(string_node.as_array(), None);
 
-    let object_node = YamlNode::from_value(YamlValue::Object(BTreeMap::new()));
+    let object_node = YamlNode::from_value(YamlValue::Object(YamlObject::new()));
     assert_eq!(object_node.as_array(), None);
 }
 
 #[test]
 fn test_get_method() {
-    let mut map = BTreeMap::new();
-    map.insert(
+    let mut obj = YamlObject::new();
+    obj.insert(
         "name".to_string(),
         YamlNode::from_value(YamlValue::String("John".to_string())),
     );
-    map.insert(
+    obj.insert(
         "age".to_string(),
         YamlNode::from_value(YamlValue::String("30".to_string())),
     );
 
-    let object_node = YamlNode::from_value(YamlValue::Object(map));
+    let object_node = YamlNode::from_value(YamlValue::Object(obj));
 
     // Test successful get
     assert_eq!(
@@ -91,17 +90,17 @@ fn test_get_method() {
 #[test]
 fn test_get_with_different_key_types() {
     // Test that get works with different Cow variants in the map
-    let mut map = BTreeMap::new();
-    map.insert(
+    let mut obj = YamlObject::new();
+    obj.insert(
         "owned_key".to_string(),
         YamlNode::from_value(YamlValue::String("owned_value".to_string())),
     );
-    map.insert(
+    obj.insert(
         "borrowed_key".to_string(),
         YamlNode::from_value(YamlValue::String("borrowed_value".to_string())),
     );
 
-    let object_node = YamlNode::from_value(YamlValue::Object(map));
+    let object_node = YamlNode::from_value(YamlValue::Object(obj));
 
     // Both should work regardless of Cow variant
     assert_eq!(
@@ -132,7 +131,7 @@ fn test_is_array_method() {
 
 #[test]
 fn test_is_object_method() {
-    let object_node = YamlNode::from_value(YamlValue::Object(BTreeMap::new()));
+    let object_node = YamlNode::from_value(YamlValue::Object(YamlObject::new()));
     assert!(!object_node.is_string());
     assert!(!object_node.is_array());
     assert!(object_node.is_object());
@@ -141,23 +140,23 @@ fn test_is_object_method() {
 #[test]
 fn test_nested_navigation() {
     // Create a nested structure
-    let mut inner_map = BTreeMap::new();
-    inner_map.insert(
+    let mut inner_obj = YamlObject::new();
+    inner_obj.insert(
         "host".to_string(),
         YamlNode::from_value(YamlValue::String("localhost".to_string())),
     );
-    inner_map.insert(
+    inner_obj.insert(
         "port".to_string(),
         YamlNode::from_value(YamlValue::String("8080".to_string())),
     );
 
-    let mut outer_map = BTreeMap::new();
-    outer_map.insert(
+    let mut outer_obj = YamlObject::new();
+    outer_obj.insert(
         "server".to_string(),
-        YamlNode::from_value(YamlValue::Object(inner_map)),
+        YamlNode::from_value(YamlValue::Object(inner_obj)),
     );
 
-    let root = YamlNode::from_value(YamlValue::Object(outer_map));
+    let root = YamlNode::from_value(YamlValue::Object(outer_obj));
 
     // Test nested navigation
     let port = root
@@ -256,6 +255,6 @@ fn test_empty_values() {
     let empty_array = YamlNode::from_value(YamlValue::Array(vec![]));
     assert_eq!(empty_array.as_array().map(|a| a.len()), Some(0));
 
-    let empty_object = YamlNode::from_value(YamlValue::Object(BTreeMap::new()));
+    let empty_object = YamlNode::from_value(YamlValue::Object(YamlObject::new()));
     assert_eq!(empty_object.as_object().map(|o| o.len()), Some(0));
 }

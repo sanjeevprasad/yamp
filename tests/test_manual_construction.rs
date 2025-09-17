@@ -1,11 +1,10 @@
 #![deny(clippy::all)]
 
-use std::collections::BTreeMap;
-use yamp::{emit, parse, YamlNode, YamlValue};
+use yamp::{emit, parse, YamlNode, YamlObject, YamlValue};
 
 #[test]
 fn test_simple_construction() {
-    let mut root = BTreeMap::new();
+    let mut root = YamlObject::new();
 
     root.insert(
         "name".to_string(),
@@ -29,7 +28,7 @@ fn test_simple_construction() {
 
 #[test]
 fn test_complex_construction() {
-    let mut root = BTreeMap::new();
+    let mut root = YamlObject::new();
 
     // Add string with comment
     let mut name_node = YamlNode::from_value(YamlValue::String("MyApp".to_string()));
@@ -37,7 +36,7 @@ fn test_complex_construction() {
     root.insert("app".to_string(), name_node);
 
     // Add nested object
-    let mut config = BTreeMap::new();
+    let mut config = YamlObject::new();
     config.insert(
         "debug".to_string(),
         YamlNode::from_value(YamlValue::String("true".to_string())),
@@ -73,10 +72,10 @@ fn test_complex_construction() {
 
 #[test]
 fn test_array_of_objects_construction() {
-    let mut root = BTreeMap::new();
+    let mut root = YamlObject::new();
 
     // Create array of objects
-    let mut user1 = BTreeMap::new();
+    let mut user1 = YamlObject::new();
     user1.insert(
         "name".to_string(),
         YamlNode::from_value(YamlValue::String("Alice".to_string())),
@@ -86,7 +85,7 @@ fn test_array_of_objects_construction() {
         YamlNode::from_value(YamlValue::String("30".to_string())),
     );
 
-    let mut user2 = BTreeMap::new();
+    let mut user2 = YamlObject::new();
     user2.insert(
         "name".to_string(),
         YamlNode::from_value(YamlValue::String("Bob".to_string())),
@@ -126,14 +125,14 @@ fn test_direct_equality_with_partialeq() {
     assert_ne!(node1, node3);
 
     // For complex structures
-    let mut map1 = BTreeMap::new();
+    let mut map1 = YamlObject::new();
     map1.insert(
         "key".to_string(),
         YamlNode::from_value(YamlValue::String("value".to_string())),
     );
     let complex1 = YamlNode::from_value(YamlValue::Object(map1));
 
-    let mut map2 = BTreeMap::new();
+    let mut map2 = YamlObject::new();
     map2.insert(
         "key".to_string(),
         YamlNode::from_value(YamlValue::String("value".to_string())),

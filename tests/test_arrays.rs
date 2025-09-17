@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::collections::BTreeMap;
-use yamp::{emit, parse, YamlNode, YamlValue};
+use yamp::{emit, parse, YamlNode, YamlObject, YamlValue};
 
 #[test]
 fn test_simple_array() {
@@ -66,7 +65,7 @@ fn test_manual_array_construction() {
         YamlNode::from_value(YamlValue::String("item2".to_string())),
     ];
 
-    let mut root = BTreeMap::new();
+    let mut root = YamlObject::new();
     root.insert(
         "list".to_string(),
         YamlNode::from_value(YamlValue::Array(items)),

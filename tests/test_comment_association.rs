@@ -525,3 +525,42 @@ fn test_empty_file_with_only_comments() {
     }
     // It's also acceptable to return an error for a file with no content
 }
+
+#[test]
+fn test_trailing_comment_round_trip() {
+    let yaml = r#"name: John Doe
+age: 30
+city: New York
+# This is a trailing comment at the bottom of the file"#;
+
+    let parsed = parse(yaml).expect("Failed to parse YAML with trailing comment");
+
+    // Verify the content parsed correctly
+    let YamlValue::Object(map) = &parsed.value else {
+        panic!("Expected object, got {:?}", parsed.value);
+    };
+    assert_eq!(map.get("name").and_then(|n| n.as_str()), Some("John Doe"));
+    assert_eq!(map.get("age").and_then(|n| n.as_str()), Some("30"));
+    assert_eq!(map.get("city").and_then(|n| n.as_str()), Some("New York"));
+
+    // Emit the YAML back
+    let emitted = emit(&parsed);
+
+    // Check if trailing comment is preserved in emission
+    assert!(
+        emitted.contains("# This is a trailing comment at the bottom of the file"),
+        "Trailing comment should be preserved in emitted YAML\nEmitted:\n{}",
+        emitted
+    );
+
+    // Re-parse the emitted YAML to verify it's still valid
+    let reparsed = parse(&emitted).expect("Failed to re-parse emitted YAML with trailing comment");
+
+    // Verify content is still the same after round-trip
+    let YamlValue::Object(reparsed_map) = &reparsed.value else {
+        panic!("Expected object in reparsed, got {:?}", reparsed.value);
+    };
+    assert_eq!(reparsed_map.get("name").and_then(|n| n.as_str()), Some("John Doe"));
+    assert_eq!(reparsed_map.get("age").and_then(|n| n.as_str()), Some("30"));
+    assert_eq!(reparsed_map.get("city").and_then(|n| n.as_str()), Some("New York"));
+}

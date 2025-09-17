@@ -361,19 +361,19 @@ mod tests {
 
     #[test]
     fn test_emit_with_special_chars() {
-        use std::collections::BTreeMap;
+        use crate::parser::YamlObject;
 
-        let mut map = BTreeMap::new();
-        map.insert(
+        let mut obj = YamlObject::new();
+        obj.insert(
             "key:with:colons".to_string(),
             YamlNode::from_value(YamlValue::String("value".to_string())),
         );
-        map.insert(
+        obj.insert(
             "normal_key".to_string(),
             YamlNode::from_value(YamlValue::String("value with spaces".to_string())),
         );
 
-        let node = YamlNode::from_value(YamlValue::Object(map));
+        let node = YamlNode::from_value(YamlValue::Object(obj));
 
         let mut emitter = Emitter::new();
         let output = emitter.emit(&node);
@@ -397,15 +397,15 @@ mod tests {
 
     #[test]
     fn test_emit_multiline_string() {
-        use std::collections::BTreeMap;
+        use crate::parser::YamlObject;
 
-        let mut map = BTreeMap::new();
-        map.insert(
+        let mut obj = YamlObject::new();
+        obj.insert(
             "description".to_string(),
             YamlNode::from_value(YamlValue::String("Line 1\nLine 2\nLine 3\n".to_string())),
         );
 
-        let node = YamlNode::from_value(YamlValue::Object(map));
+        let node = YamlNode::from_value(YamlValue::Object(obj));
 
         let mut emitter = Emitter::new();
         let output = emitter.emit(&node);

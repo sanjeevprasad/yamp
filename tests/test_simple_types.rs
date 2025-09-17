@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::collections::BTreeMap;
-use yamp::{emit, parse, YamlNode, YamlValue};
+use yamp::{emit, parse, YamlNode, YamlObject, YamlValue};
 
 #[test]
 fn test_basic_string_parsing() {
@@ -240,17 +239,17 @@ unquoted: hello world
 #[test]
 fn test_manual_construction() {
     // Test manual construction of YAML values
-    let mut map = BTreeMap::new();
-    map.insert(
+    let mut obj = YamlObject::new();
+    obj.insert(
         "name".to_string(),
         YamlNode::from_value(YamlValue::String("Test".to_string())),
     );
-    map.insert(
+    obj.insert(
         "count".to_string(),
         YamlNode::from_value(YamlValue::String("42".to_string())),
     );
 
-    let root = YamlNode::from_value(YamlValue::Object(map));
+    let root = YamlNode::from_value(YamlValue::Object(obj));
     let emitted = emit(&root);
 
     assert!(emitted.contains("name:"));
