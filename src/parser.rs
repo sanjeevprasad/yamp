@@ -123,58 +123,119 @@ impl<'g> Parser<'g> {
     }
 
     fn collect_consecutive_comments(&mut self) -> Option<String> {
-        // Collect all comments before any non-comment content, being flexible about indentation
         let mut leading_comments: Vec<String> = Vec::new();
 
-        // Look for consecutive comment lines, respecting blank lines
-        while let Some(token) = self.current_token() {
-            if token.kind != TokenKind::Comment {
-                break;
-            }
+        // First, look backward to find any comments that should be associated with this position
+        // This handles cases where comments were already passed during array/object parsing
+        let mut check_position = self.current;
+        let mut found_non_comment_content = false;
 
-            leading_comments.push(token.text.trim_start_matches('#').trim().to_string());
-            self.advance();
+        while check_position > 0 {
+            check_position -= 1;
+            let token = &self.tokens[check_position];
 
-            // Skip all whitespace/indentation until we find the next meaningful token
-            let mut found_blank_line = false;
-            let mut consecutive_newlines = 0;
+            match token.kind {
+                TokenKind::Comment => {
+                    // Check if this comment is on the same line as some other content (inline comment)
+                    // Look at the token before this comment
+                    let is_inline_comment = if check_position > 0 {
+                        let prev_token = &self.tokens[check_position - 1];
+                        prev_token.kind != TokenKind::NewLine && prev_token.kind != TokenKind::Indent && prev_token.kind != TokenKind::Dedent
+                    } else {
+                        false
+                    };
 
-            while let Some(next_token) = self.current_token() {
-                match next_token.kind {
-                    TokenKind::Whitespace | TokenKind::Indent | TokenKind::Dedent => {
-                        // Skip all whitespace and indentation tokens - be flexible
-                        self.advance();
+                    // Skip inline comments - they shouldn't be leading comments for subsequent keys
+                    if is_inline_comment {
                         continue;
                     }
-                    TokenKind::NewLine => {
-                        consecutive_newlines += 1;
-                        if consecutive_newlines >= 2 {
-                            found_blank_line = true;
-                            // Advance past all newlines
-                            self.advance();
-                            while let Some(t) = self.current_token() {
-                                if t.kind != TokenKind::NewLine {
-                                    break;
+
+                    // If we haven't found any significant non-comment content yet, this comment belongs to current position
+                    if !found_non_comment_content {
+                        leading_comments.insert(0, token.text.trim_start_matches('#').trim().to_string());
+                    } else {
+                        // We found a comment but there's content between it and current position
+                        // Check if there are only whitespace/newlines between this comment and current position
+                        let mut valid_comment = true;
+
+                        for i in (check_position + 1)..self.current {
+                            if i < self.tokens.len() {
+                                match self.tokens[i].kind {
+                                    TokenKind::Whitespace | TokenKind::Indent | TokenKind::Dedent | TokenKind::NewLine => continue,
+                                    TokenKind::Identifier
+                                    | TokenKind::Colon
+                                    | TokenKind::String
+                                    | TokenKind::Hyphen
+                                    | TokenKind::Comment
+                                    | TokenKind::Pipe
+                                    | TokenKind::GreaterThan => {
+                                        valid_comment = false; // Non-whitespace content between comment and current position
+                                        break;
+                                    }
                                 }
-                                self.advance();
                             }
-                            break;
                         }
-                        self.advance();
+
+                        if valid_comment {
+                            leading_comments.insert(0, token.text.trim_start_matches('#').trim().to_string());
+                        } else {
+                            break; // Stop looking backward if we hit a non-associable comment
+                        }
                     }
-                    TokenKind::Identifier
-                    | TokenKind::Colon
-                    | TokenKind::String
-                    | TokenKind::Hyphen
-                    | TokenKind::Comment
-                    | TokenKind::Pipe
-                    | TokenKind::GreaterThan => break,
+                }
+                TokenKind::Whitespace | TokenKind::NewLine | TokenKind::Indent | TokenKind::Dedent => {
+                    continue; // Keep looking backward through whitespace
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Hyphen
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => {
+                    found_non_comment_content = true;
+                    // Don't break yet - continue looking for more comments
                 }
             }
+        }
 
-            // If we found a blank line, clear previous comments and continue
-            if found_blank_line {
-                leading_comments.clear();
+        // Now look forward from current position for any additional comments
+        while let Some(token) = self.current_token() {
+            match token.kind {
+                TokenKind::Whitespace | TokenKind::NewLine | TokenKind::Indent | TokenKind::Dedent => {
+                    self.advance();
+                    continue;
+                }
+                TokenKind::Comment => {
+                    leading_comments.push(token.text.trim_start_matches('#').trim().to_string());
+                    self.advance();
+
+                    // Skip whitespace after comment
+                    while let Some(next_token) = self.current_token() {
+                        match next_token.kind {
+                            TokenKind::Whitespace | TokenKind::Indent | TokenKind::Dedent => {
+                                self.advance();
+                                continue;
+                            }
+                            TokenKind::NewLine => {
+                                self.advance();
+                                break; // Single newline after comment is okay
+                            }
+                            TokenKind::Identifier
+                            | TokenKind::Colon
+                            | TokenKind::String
+                            | TokenKind::Hyphen
+                            | TokenKind::Comment
+                            | TokenKind::Pipe
+                            | TokenKind::GreaterThan => break,
+                        }
+                    }
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Hyphen
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => break,
             }
         }
 
@@ -686,15 +747,6 @@ impl<'g> Parser<'g> {
             // Handle any leading comments before the key - always collect consistently
             let mut leading_comment = self.collect_consecutive_comments();
 
-            // Debug: show what we found
-            if let Some(token) = self.current_token() {
-                if token.kind == TokenKind::Identifier {
-                    eprintln!(
-                        "DEBUG parse_object: key '{}' collected comment: {:?}",
-                        token.text, leading_comment
-                    );
-                }
-            }
 
             // For the first key, prefer the initial comment if provided and no comment was collected
             if first_key {
