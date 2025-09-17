@@ -2,14 +2,13 @@
 
 //! Tests specifically for YamlNode helper methods to ensure API stability
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 use yamp::{parse, YamlNode, YamlValue};
 
 #[test]
 fn test_as_str_method() {
     // Test with actual string
-    let string_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
+    let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert_eq!(string_node.as_str(), Some("hello"));
 
     // Test with non-string values
@@ -25,15 +24,15 @@ fn test_as_object_method() {
     // Test with actual object
     let mut map = BTreeMap::new();
     map.insert(
-        Cow::Borrowed("key"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("value"))),
+        "key".to_string(),
+        YamlNode::from_value(YamlValue::String("value".to_string())),
     );
     let object_node = YamlNode::from_value(YamlValue::Object(map));
     assert!(object_node.as_object().is_some());
     assert_eq!(object_node.as_object().unwrap().len(), 1);
 
     // Test with non-object values
-    let string_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
+    let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert_eq!(string_node.as_object(), None);
 
     let array_node = YamlNode::from_value(YamlValue::Array(vec![]));
@@ -44,8 +43,8 @@ fn test_as_object_method() {
 fn test_as_array_method() {
     // Test with actual array
     let items = vec![
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item1"))),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item2"))),
+        YamlNode::from_value(YamlValue::String("item1".to_string())),
+        YamlNode::from_value(YamlValue::String("item2".to_string())),
     ];
     let array_node = YamlNode::from_value(YamlValue::Array(items));
     assert!(array_node.as_array().is_some());
@@ -53,7 +52,7 @@ fn test_as_array_method() {
     assert_eq!(array_node.as_array().unwrap()[0].as_str(), Some("item1"));
 
     // Test with non-array values
-    let string_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
+    let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert_eq!(string_node.as_array(), None);
 
     let object_node = YamlNode::from_value(YamlValue::Object(BTreeMap::new()));
@@ -64,25 +63,28 @@ fn test_as_array_method() {
 fn test_get_method() {
     let mut map = BTreeMap::new();
     map.insert(
-        Cow::Borrowed("name"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("John"))),
+        "name".to_string(),
+        YamlNode::from_value(YamlValue::String("John".to_string())),
     );
     map.insert(
-        Cow::Borrowed("age"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("30"))),
+        "age".to_string(),
+        YamlNode::from_value(YamlValue::String("30".to_string())),
     );
 
     let object_node = YamlNode::from_value(YamlValue::Object(map));
 
     // Test successful get
-    assert_eq!(object_node.get("name").and_then(|n| n.as_str()), Some("John"));
+    assert_eq!(
+        object_node.get("name").and_then(|n| n.as_str()),
+        Some("John")
+    );
     assert_eq!(object_node.get("age").and_then(|n| n.as_str()), Some("30"));
 
     // Test missing key
     assert!(object_node.get("missing").is_none());
 
     // Test get on non-object
-    let string_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
+    let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert!(string_node.get("anything").is_none());
 }
 
@@ -91,24 +93,30 @@ fn test_get_with_different_key_types() {
     // Test that get works with different Cow variants in the map
     let mut map = BTreeMap::new();
     map.insert(
-        Cow::Owned("owned_key".to_string()),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("owned_value"))),
+        "owned_key".to_string(),
+        YamlNode::from_value(YamlValue::String("owned_value".to_string())),
     );
     map.insert(
-        Cow::Borrowed("borrowed_key"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("borrowed_value"))),
+        "borrowed_key".to_string(),
+        YamlNode::from_value(YamlValue::String("borrowed_value".to_string())),
     );
 
     let object_node = YamlNode::from_value(YamlValue::Object(map));
 
     // Both should work regardless of Cow variant
-    assert_eq!(object_node.get("owned_key").and_then(|n| n.as_str()), Some("owned_value"));
-    assert_eq!(object_node.get("borrowed_key").and_then(|n| n.as_str()), Some("borrowed_value"));
+    assert_eq!(
+        object_node.get("owned_key").and_then(|n| n.as_str()),
+        Some("owned_value")
+    );
+    assert_eq!(
+        object_node.get("borrowed_key").and_then(|n| n.as_str()),
+        Some("borrowed_value")
+    );
 }
 
 #[test]
 fn test_is_string_method() {
-    let string_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
+    let string_node = YamlNode::from_value(YamlValue::String("hello".to_string()));
     assert!(string_node.is_string());
     assert!(!string_node.is_array());
     assert!(!string_node.is_object());
@@ -135,17 +143,17 @@ fn test_nested_navigation() {
     // Create a nested structure
     let mut inner_map = BTreeMap::new();
     inner_map.insert(
-        Cow::Borrowed("host"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("localhost"))),
+        "host".to_string(),
+        YamlNode::from_value(YamlValue::String("localhost".to_string())),
     );
     inner_map.insert(
-        Cow::Borrowed("port"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("8080"))),
+        "port".to_string(),
+        YamlNode::from_value(YamlValue::String("8080".to_string())),
     );
 
     let mut outer_map = BTreeMap::new();
     outer_map.insert(
-        Cow::Borrowed("server"),
+        "server".to_string(),
         YamlNode::from_value(YamlValue::Object(inner_map)),
     );
 
@@ -160,7 +168,7 @@ fn test_nested_navigation() {
 
     // Test partial navigation
     assert!(root.get("server").is_some());
-    assert!(root.get("server").unwrap().is_object());
+    assert!(root.get("server").map(|s| s.is_object()).unwrap_or(false));
 
     // Test failed navigation
     let missing = root
@@ -173,9 +181,9 @@ fn test_nested_navigation() {
 #[test]
 fn test_helper_methods_preserve_comments() {
     // Create a node with comments
-    let mut node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("value")));
-    node.leading_comment = Some(Cow::Borrowed("Leading comment"));
-    node.inline_comment = Some(Cow::Borrowed("Inline comment"));
+    let mut node = YamlNode::from_value(YamlValue::String("value".to_string()));
+    node.leading_comment = Some("Leading comment".to_string());
+    node.inline_comment = Some("Inline comment".to_string());
 
     // Helper methods should work without affecting comments
     assert_eq!(node.as_str(), Some("value"));
@@ -204,12 +212,18 @@ app:
 
     // Test various helper method combinations
     assert_eq!(
-        parsed.get("app").and_then(|a| a.get("name")).and_then(|n| n.as_str()),
+        parsed
+            .get("app")
+            .and_then(|a| a.get("name"))
+            .and_then(|n| n.as_str()),
         Some("MyApp")
     );
 
     assert_eq!(
-        parsed.get("app").and_then(|a| a.get("version")).and_then(|v| v.as_str()),
+        parsed
+            .get("app")
+            .and_then(|a| a.get("version"))
+            .and_then(|v| v.as_str()),
         Some("1.0.0")
     );
 
@@ -236,7 +250,7 @@ app:
 #[test]
 fn test_empty_values() {
     // Test helper methods with empty values
-    let empty_string = YamlNode::from_value(YamlValue::String(Cow::Borrowed("")));
+    let empty_string = YamlNode::from_value(YamlValue::String("".to_string()));
     assert_eq!(empty_string.as_str(), Some(""));
 
     let empty_array = YamlNode::from_value(YamlValue::Array(vec![]));

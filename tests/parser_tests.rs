@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, parse};
+use yamp::{parse, YamlValue};
 
 #[test]
 fn test_simple_key_value() {
@@ -10,17 +9,21 @@ fn test_simple_key_value() {
 
     let map = match &result.value {
         YamlValue::Object(m) => m,
-        YamlValue::String(_) | YamlValue::Array(_) => panic!("Expected object at root, got {:?}", result.value),
+        YamlValue::String(_) | YamlValue::Array(_) => {
+            panic!("Expected object at root, got {:?}", result.value)
+        }
     };
     assert_eq!(map.len(), 1);
-    assert!(map.contains_key(&Cow::Borrowed("key")));
+    assert!(map.contains_key("key"));
 
-    let key_node = map.get(&Cow::Borrowed("key")).unwrap();
+    let key_node = map.get("key").expect("key not found");
     let s = match &key_node.value {
         YamlValue::String(s) => s,
-        YamlValue::Object(_) | YamlValue::Array(_) => panic!("Expected string value, got {:?}", key_node.value),
+        YamlValue::Object(_) | YamlValue::Array(_) => {
+            panic!("Expected string value, got {:?}", key_node.value)
+        }
     };
-    assert_eq!(s.as_ref(), "value");
+    assert_eq!(s.as_str(), "value")
 }
 
 #[test]
@@ -38,32 +41,26 @@ null_value: null
 
     if let YamlValue::Object(map) = &result.value {
         // Check string
-        if let Some(node) = map.get(&Cow::Borrowed("string")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "hello"));
-        }
+        assert_eq!(map.get("string").and_then(|n| n.as_str()), Some("hello"));
 
         // Check integer - now a string
-        if let Some(node) = map.get(&Cow::Borrowed("integer")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "42"));
-        }
+        assert_eq!(map.get("integer").and_then(|n| n.as_str()), Some("42"));
 
         // Check float - now a string
-        if let Some(node) = map.get(&Cow::Borrowed("float")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "3.15"));
-        }
+        assert_eq!(map.get("float").and_then(|n| n.as_str()), Some("3.15"));
 
         // Check booleans - now strings
-        if let Some(node) = map.get(&Cow::Borrowed("boolean_true")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "true"));
-        }
-        if let Some(node) = map.get(&Cow::Borrowed("boolean_false")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "false"));
-        }
+        assert_eq!(
+            map.get("boolean_true").and_then(|n| n.as_str()),
+            Some("true")
+        );
+        assert_eq!(
+            map.get("boolean_false").and_then(|n| n.as_str()),
+            Some("false")
+        );
 
         // Check null - now a string
-        if let Some(node) = map.get(&Cow::Borrowed("null_value")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "null"));
-        }
+        assert_eq!(map.get("null_value").and_then(|n| n.as_str()), Some("null"));
     }
 }
 
@@ -81,17 +78,15 @@ database:
     let result = parse(yaml).expect("Failed to parse nested objects");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(db_node) = map.get(&Cow::Borrowed("database")) {
-            if let YamlValue::Object(db_map) = &db_node.value {
-                assert!(db_map.contains_key(&Cow::Borrowed("host")));
-                assert!(db_map.contains_key(&Cow::Borrowed("port")));
+        let db_node = map.get("database").expect("database not found");
+        if let YamlValue::Object(db_map) = &db_node.value {
+            assert!(db_map.contains_key("host"));
+            assert!(db_map.contains_key("port"));
 
-                if let Some(creds_node) = db_map.get(&Cow::Borrowed("credentials")) {
-                    if let YamlValue::Object(creds_map) = &creds_node.value {
-                        assert!(creds_map.contains_key(&Cow::Borrowed("username")));
-                        assert!(creds_map.contains_key(&Cow::Borrowed("password")));
-                    }
-                }
+            let creds_node = db_map.get("credentials").expect("credentials not found");
+            if let YamlValue::Object(creds_map) = &creds_node.value {
+                assert!(creds_map.contains_key("username"));
+                assert!(creds_map.contains_key("password"));
             }
         }
     }
@@ -110,29 +105,20 @@ users:
     let result = parse(yaml).expect("Failed to parse array of objects");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(users_node) = map.get(&Cow::Borrowed("users")) {
-            if let YamlValue::Array(users) = &users_node.value {
-                assert_eq!(users.len(), 2);
+        let users_node = map.get("users").expect("users not found");
+        if let YamlValue::Array(users) = &users_node.value {
+            assert_eq!(users.len(), 2);
 
-                // Check first user
-                if let YamlValue::Object(user1) = &users[0].value {
-                    if let Some(name_node) = user1.get(&Cow::Borrowed("name")) {
-                        assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Alice"));
-                    }
-                    if let Some(age_node) = user1.get(&Cow::Borrowed("age")) {
-                        assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "30"));
-                    }
-                }
+            // Check first user
+            if let YamlValue::Object(user1) = &users[0].value {
+                assert_eq!(user1.get("name").and_then(|n| n.as_str()), Some("Alice"));
+                assert_eq!(user1.get("age").and_then(|n| n.as_str()), Some("30"));
+            }
 
-                // Check second user
-                if let YamlValue::Object(user2) = &users[1].value {
-                    if let Some(name_node) = user2.get(&Cow::Borrowed("name")) {
-                        assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Bob"));
-                    }
-                    if let Some(age_node) = user2.get(&Cow::Borrowed("age")) {
-                        assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "25"));
-                    }
-                }
+            // Check second user
+            if let YamlValue::Object(user2) = &users[1].value {
+                assert_eq!(user2.get("name").and_then(|n| n.as_str()), Some("Bob"));
+                assert_eq!(user2.get("age").and_then(|n| n.as_str()), Some("25"));
             }
         }
     }
@@ -153,26 +139,14 @@ string6: off
 
     if let YamlValue::Object(map) = &result.value {
         // All boolean values are now strings
-        assert!(
-            matches!(map.get(&Cow::Borrowed("bool1")).unwrap().value, YamlValue::String(ref s) if s == "true")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("bool2")).unwrap().value, YamlValue::String(ref s) if s == "false")
-        );
+        assert_eq!(map.get("bool1").and_then(|n| n.as_str()), Some("true"));
+        assert_eq!(map.get("bool2").and_then(|n| n.as_str()), Some("false"));
 
         // yes/no/on/off should be strings
-        assert!(
-            matches!(map.get(&Cow::Borrowed("string3")).unwrap().value, YamlValue::String(ref s) if s == "yes")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("string4")).unwrap().value, YamlValue::String(ref s) if s == "no")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("string5")).unwrap().value, YamlValue::String(ref s) if s == "on")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("string6")).unwrap().value, YamlValue::String(ref s) if s == "off")
-        );
+        assert_eq!(map.get("string3").and_then(|n| n.as_str()), Some("yes"));
+        assert_eq!(map.get("string4").and_then(|n| n.as_str()), Some("no"));
+        assert_eq!(map.get("string5").and_then(|n| n.as_str()), Some("on"));
+        assert_eq!(map.get("string6").and_then(|n| n.as_str()), Some("off"));
     }
 }
 
@@ -187,17 +161,18 @@ key_with_quotes: "value \"with\" quotes"
     let result = parse(yaml).expect("Failed to parse special characters");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(node) = map.get(&Cow::Borrowed("key_with_colon")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "value: with colon"));
-        }
-        if let Some(node) = map.get(&Cow::Borrowed("key_with_hash")) {
-            assert!(matches!(node.value, YamlValue::String(ref s) if s == "value # with hash"));
-        }
-        if let Some(node) = map.get(&Cow::Borrowed("key_with_quotes")) {
-            assert!(
-                matches!(node.value, YamlValue::String(ref s) if s == "value \\\"with\\\" quotes")
-            );
-        }
+        assert_eq!(
+            map.get("key_with_colon").and_then(|n| n.as_str()),
+            Some("value: with colon")
+        );
+        assert_eq!(
+            map.get("key_with_hash").and_then(|n| n.as_str()),
+            Some("value # with hash")
+        );
+        assert_eq!(
+            map.get("key_with_quotes").and_then(|n| n.as_str()),
+            Some("value \\\"with\\\" quotes")
+        );
     }
 }
 
@@ -214,20 +189,22 @@ scientific: 1.2e-3
     let result = parse(yaml).expect("Failed to parse numbers");
 
     if let YamlValue::Object(map) = &result.value {
-        assert!(
-            matches!(map.get(&Cow::Borrowed("positive_int")).unwrap().value, YamlValue::String(ref s) if s == "42")
+        assert_eq!(map.get("positive_int").and_then(|n| n.as_str()), Some("42"));
+        assert_eq!(
+            map.get("negative_int").and_then(|n| n.as_str()),
+            Some("-17")
         );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("negative_int")).unwrap().value, YamlValue::String(ref s) if s == "-17")
+        assert_eq!(
+            map.get("positive_float").and_then(|n| n.as_str()),
+            Some("3.15")
         );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("positive_float")).unwrap().value, YamlValue::String(ref s) if s == "3.15")
+        assert_eq!(
+            map.get("negative_float").and_then(|n| n.as_str()),
+            Some("-2.5")
         );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("negative_float")).unwrap().value, YamlValue::String(ref s) if s == "-2.5")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("scientific")).unwrap().value, YamlValue::String(ref s) if s == "1.2e-3")
+        assert_eq!(
+            map.get("scientific").and_then(|n| n.as_str()),
+            Some("1.2e-3")
         );
     }
 }
@@ -247,34 +224,23 @@ features:
     let result = parse(yaml).expect("Failed to parse array with inline object format");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(features_node) = map.get(&Cow::Borrowed("features")) {
-            if let YamlValue::Array(features) = &features_node.value {
-                assert_eq!(features.len(), 2);
+        let features_node = map.get("features").expect("features not found");
+        if let YamlValue::Array(features) = &features_node.value {
+            assert_eq!(features.len(), 2);
 
-                // First feature
-                if let YamlValue::Object(f1) = &features[0].value {
-                    assert_eq!(f1.len(), 2);
-                    assert!(
-                        matches!(f1.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "false")
-                    );
-                    assert!(
-                        matches!(f1.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature1")
-                    );
-                }
+            // First feature
+            if let YamlValue::Object(f1) = &features[0].value {
+                assert_eq!(f1.len(), 2);
+                assert_eq!(f1.get("enabled").and_then(|n| n.as_str()), Some("false"));
+                assert_eq!(f1.get("name").and_then(|n| n.as_str()), Some("feature1"));
+            }
 
-                // Second feature
-                if let YamlValue::Object(f2) = &features[1].value {
-                    assert_eq!(f2.len(), 3);
-                    assert!(
-                        matches!(f2.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "true")
-                    );
-                    assert!(
-                        matches!(f2.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature2")
-                    );
-                    assert!(
-                        matches!(f2.get(&Cow::Borrowed("priority")).unwrap().value, YamlValue::String(ref s) if s == "high")
-                    );
-                }
+            // Second feature
+            if let YamlValue::Object(f2) = &features[1].value {
+                assert_eq!(f2.len(), 3);
+                assert_eq!(f2.get("enabled").and_then(|n| n.as_str()), Some("true"));
+                assert_eq!(f2.get("name").and_then(|n| n.as_str()), Some("feature2"));
+                assert_eq!(f2.get("priority").and_then(|n| n.as_str()), Some("high"));
             }
         }
     }

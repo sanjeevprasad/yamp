@@ -296,7 +296,8 @@ impl<'g> Lexer<'g> {
                 tokens.push(Token::new(TokenKind::Indent, "", line, column));
             }
             Ordering::Less => {
-                while self.indent_stack.len() > 1 && *self.indent_stack.last().unwrap() > new_indent {
+                while self.indent_stack.len() > 1 && *self.indent_stack.last().unwrap() > new_indent
+                {
                     self.indent_stack.pop();
                     tokens.push(Token::new(TokenKind::Dedent, "", line, column));
                 }
@@ -357,7 +358,7 @@ impl<'g> Lexer<'g> {
                 match temp.peek() {
                     Some(&(_, ':' | '#' | '\n')) => break,
                     None => break, // End of input
-                    _other => {}        // Continue, whitespace is part of value
+                    _other => {}   // Continue, whitespace is part of value
                 }
             }
 

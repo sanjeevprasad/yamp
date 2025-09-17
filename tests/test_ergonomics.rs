@@ -1,6 +1,5 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
 use yamp::parse;
 
 #[test]
@@ -86,8 +85,8 @@ config:
 
     // Can still access the raw map when needed
     if let Some(config_map) = config {
-        assert!(config_map.contains_key(&Cow::Borrowed("debug")));
-        assert!(config_map.contains_key(&Cow::Borrowed("timeout")));
+        assert!(config_map.contains_key("debug"));
+        assert!(config_map.contains_key("timeout"));
     }
 }
 

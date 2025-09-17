@@ -16,7 +16,6 @@
 //!
 //! ```rust
 //! use yamp::{parse, emit, YamlValue};
-//! use std::borrow::Cow;
 //!
 //! let yaml = "name: John\nage: 30";
 //! let parsed = parse(yaml).expect("Failed to parse");
@@ -28,9 +27,9 @@
 //!
 //! // Or using the traditional approach
 //! if let YamlValue::Object(map) = &parsed.value {
-//!     let age = &map.get(&Cow::Borrowed("age")).unwrap().value;
+//!     let age = &map.get("age").unwrap().value;
 //!     // Note: age is a string "30", not a number
-//!     assert_eq!(age, &YamlValue::String(Cow::Borrowed("30")));
+//!     assert_eq!(age, &YamlValue::String("30".to_string()));
 //! }
 //!
 //! let output = emit(&parsed);
@@ -58,7 +57,7 @@ use parser::Parser;
 /// let yaml = "name: John\nage: 30";
 /// let parsed = parse(yaml).expect("Failed to parse");
 /// ```
-pub fn parse(yaml: &str) -> Result<YamlNode<'_>, String> {
+pub fn parse(yaml: &str) -> Result<YamlNode, String> {
     let mut parser = Parser::new(yaml);
     parser.parse()
 }
@@ -78,7 +77,7 @@ pub fn parse(yaml: &str) -> Result<YamlNode<'_>, String> {
 /// let output = emit(&parsed);
 /// assert!(output.contains("name: John"));
 /// ```
-pub fn emit(node: &YamlNode<'_>) -> String {
+pub fn emit(node: &YamlNode) -> String {
     let mut emitter = Emitter::new();
     emitter.emit(node)
 }

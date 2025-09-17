@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, emit, parse};
+use yamp::{emit, parse, YamlValue};
 
 #[test]
 fn test_multiline_round_trip() {
@@ -26,24 +25,36 @@ other: value
     let map1 = match &parsed.value {
         YamlValue::Object(m) => m,
         YamlValue::String(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::Object for parsed, got {:?}", parsed.value)
+            panic!(
+                "Expected YamlValue::Object for parsed, got {:?}",
+                parsed.value
+            )
         }
     };
     let map2 = match &reparsed.value {
         YamlValue::Object(m) => m,
         YamlValue::String(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::Object for reparsed, got {:?}", reparsed.value)
+            panic!(
+                "Expected YamlValue::Object for reparsed, got {:?}",
+                reparsed.value
+            )
         }
     };
-    let desc1 = &map1.get(&Cow::Borrowed("description")).unwrap().value;
-    let desc2 = &map2.get(&Cow::Borrowed("description")).unwrap().value;
+    let desc1 = &map1
+        .get("description")
+        .expect("description not found in map1")
+        .value;
+    let desc2 = &map2
+        .get("description")
+        .expect("description not found in map2")
+        .value;
     assert_eq!(
         desc1, desc2,
         "Description values don't match after round-trip"
     );
 
-    let other1 = &map1.get(&Cow::Borrowed("other")).unwrap().value;
-    let other2 = &map2.get(&Cow::Borrowed("other")).unwrap().value;
+    let other1 = &map1.get("other").expect("other not found in map1").value;
+    let other2 = &map2.get("other").expect("other not found in map2").value;
     assert_eq!(other1, other2, "Other values don't match after round-trip");
 }
 
@@ -59,16 +70,18 @@ fn test_quoted_string_with_escaped_newline() {
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
     // The \n should be preserved as literal text, not interpreted
-    assert_eq!(s.as_ref(), "Line 1\\nLine 2\\nLine 3");
+    assert_eq!(s.as_str(), "Line 1\\nLine 2\\nLine 3");
 }
 
 #[test]
@@ -85,17 +98,19 @@ and even a third line""#;
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
     // Actual newlines in quoted strings should be preserved
     assert_eq!(
-        s.as_ref(),
+        s.as_str(),
         "This is a string\nthat continues on the next line\nand even a third line"
     );
 }
@@ -117,16 +132,18 @@ description: |
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
     assert_eq!(
-        s.as_ref(),
+        s.as_str(),
         "This is a multiline string\nthat preserves line breaks.\n"
     );
 }
@@ -148,16 +165,18 @@ description: >
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
     assert_eq!(
-        s.as_ref(),
+        s.as_str(),
         "This is a folded multiline string that joins lines together.\n"
     );
 }
@@ -180,15 +199,17 @@ description: |-
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
-    assert_eq!(s.as_ref(), "Line 1\nLine 2");
+    assert_eq!(s.as_str(), "Line 1\nLine 2")
 }
 
 #[test]
@@ -209,17 +230,19 @@ description: |+
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
     // Note: our current implementation doesn't capture trailing blank lines
     // This is a known limitation we can improve later
-    assert_eq!(s.as_ref(), "Line 1\nLine 2\n");
+    assert_eq!(s.as_str(), "Line 1\nLine 2\n")
 }
 
 #[test]
@@ -240,15 +263,17 @@ description: >-
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let description_value = map.get(&Cow::Borrowed("description"))
-        .expect("Key 'description' not found in map");
+    let description_value = map.get("description").expect("description key not found");
     let s = match &description_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for description, got {:?}", description_value.value)
+            panic!(
+                "Expected YamlValue::String for description, got {:?}",
+                description_value.value
+            )
         }
     };
-    assert_eq!(s.as_ref(), "This is a folded multiline string.");
+    assert_eq!(s.as_str(), "This is a folded multiline string.")
 }
 
 #[test]
@@ -268,16 +293,18 @@ And YAMP is too!"
             panic!("Expected YamlValue::Object, got {:?}", parsed.value)
         }
     };
-    let poem_value = map.get(&Cow::Borrowed("poem"))
-        .expect("Key 'poem' not found in map");
+    let poem_value = map.get("poem").expect("poem key not found");
     let s = match &poem_value.value {
         YamlValue::String(s) => s,
         YamlValue::Object(_) | YamlValue::Array(_) => {
-            panic!("Expected YamlValue::String for poem, got {:?}", poem_value.value)
+            panic!(
+                "Expected YamlValue::String for poem, got {:?}",
+                poem_value.value
+            )
         }
     };
     assert_eq!(
-        s.as_ref(),
+        s.as_str(),
         "Roses are red,\nViolets are blue,\nYAML is simple,\nAnd YAMP is too!"
     );
 }

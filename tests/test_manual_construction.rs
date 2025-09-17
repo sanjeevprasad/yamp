@@ -1,21 +1,20 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
-use yamp::{YamlNode, YamlValue, emit, parse};
+use yamp::{emit, parse, YamlNode, YamlValue};
 
 #[test]
 fn test_simple_construction() {
     let mut root = BTreeMap::new();
 
     root.insert(
-        Cow::Borrowed("name"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("test"))),
+        "name".to_string(),
+        YamlNode::from_value(YamlValue::String("test".to_string())),
     );
 
     root.insert(
-        Cow::Borrowed("version"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("1"))),
+        "version".to_string(),
+        YamlNode::from_value(YamlValue::String("1".to_string())),
     );
 
     let doc = YamlNode::from_value(YamlValue::Object(root));
@@ -33,34 +32,34 @@ fn test_complex_construction() {
     let mut root = BTreeMap::new();
 
     // Add string with comment
-    let mut name_node = YamlNode::from_value(YamlValue::String(Cow::Borrowed("MyApp")));
-    name_node.inline_comment = Some(Cow::Borrowed("Application name"));
-    root.insert(Cow::Borrowed("app"), name_node);
+    let mut name_node = YamlNode::from_value(YamlValue::String("MyApp".to_string()));
+    name_node.inline_comment = Some("Application name".to_string());
+    root.insert("app".to_string(), name_node);
 
     // Add nested object
     let mut config = BTreeMap::new();
     config.insert(
-        Cow::Borrowed("debug"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("true"))),
+        "debug".to_string(),
+        YamlNode::from_value(YamlValue::String("true".to_string())),
     );
     config.insert(
-        Cow::Borrowed("timeout"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("30"))),
+        "timeout".to_string(),
+        YamlNode::from_value(YamlValue::String("30".to_string())),
     );
 
     // Add array (move items into config to work around parser limitation)
     let items = vec![
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item1"))),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item2"))),
+        YamlNode::from_value(YamlValue::String("item1".to_string())),
+        YamlNode::from_value(YamlValue::String("item2".to_string())),
     ];
 
     config.insert(
-        Cow::Borrowed("items"),
+        "items".to_string(),
         YamlNode::from_value(YamlValue::Array(items)),
     );
 
     root.insert(
-        Cow::Borrowed("config"),
+        "config".to_string(),
         YamlNode::from_value(YamlValue::Object(config)),
     );
 
@@ -79,22 +78,22 @@ fn test_array_of_objects_construction() {
     // Create array of objects
     let mut user1 = BTreeMap::new();
     user1.insert(
-        Cow::Borrowed("name"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("Alice"))),
+        "name".to_string(),
+        YamlNode::from_value(YamlValue::String("Alice".to_string())),
     );
     user1.insert(
-        Cow::Borrowed("age"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("30"))),
+        "age".to_string(),
+        YamlNode::from_value(YamlValue::String("30".to_string())),
     );
 
     let mut user2 = BTreeMap::new();
     user2.insert(
-        Cow::Borrowed("name"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("Bob"))),
+        "name".to_string(),
+        YamlNode::from_value(YamlValue::String("Bob".to_string())),
     );
     user2.insert(
-        Cow::Borrowed("age"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("25"))),
+        "age".to_string(),
+        YamlNode::from_value(YamlValue::String("25".to_string())),
     );
 
     let users = vec![
@@ -103,7 +102,7 @@ fn test_array_of_objects_construction() {
     ];
 
     root.insert(
-        Cow::Borrowed("users"),
+        "users".to_string(),
         YamlNode::from_value(YamlValue::Array(users)),
     );
 
@@ -118,9 +117,9 @@ fn test_array_of_objects_construction() {
 #[test]
 fn test_direct_equality_with_partialeq() {
     // Now that YamlNode implements PartialEq, we can directly compare nodes
-    let node1 = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
-    let node2 = YamlNode::from_value(YamlValue::String(Cow::Borrowed("hello")));
-    let node3 = YamlNode::from_value(YamlValue::String(Cow::Borrowed("world")));
+    let node1 = YamlNode::from_value(YamlValue::String("hello".to_string()));
+    let node2 = YamlNode::from_value(YamlValue::String("hello".to_string()));
+    let node3 = YamlNode::from_value(YamlValue::String("world".to_string()));
 
     // Direct equality comparison works!
     assert_eq!(node1, node2);
@@ -129,15 +128,15 @@ fn test_direct_equality_with_partialeq() {
     // For complex structures
     let mut map1 = BTreeMap::new();
     map1.insert(
-        Cow::Borrowed("key"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("value"))),
+        "key".to_string(),
+        YamlNode::from_value(YamlValue::String("value".to_string())),
     );
     let complex1 = YamlNode::from_value(YamlValue::Object(map1));
 
     let mut map2 = BTreeMap::new();
     map2.insert(
-        Cow::Borrowed("key"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("value"))),
+        "key".to_string(),
+        YamlNode::from_value(YamlValue::String("value".to_string())),
     );
     let complex2 = YamlNode::from_value(YamlValue::Object(map2));
 

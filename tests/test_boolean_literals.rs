@@ -1,14 +1,13 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, parse};
+use yamp::{parse, YamlValue};
 
 #[test]
 fn test_all_values_are_strings() {
     // Test that all values including "true" and "false" are parsed as strings
     let test_cases = [
-        ("true", YamlValue::String(Cow::Borrowed("true"))),
-        ("false", YamlValue::String(Cow::Borrowed("false"))),
+        ("true", YamlValue::String("true".to_string())),
+        ("false", YamlValue::String("false".to_string())),
     ];
 
     for (yaml, expected) in test_cases {
@@ -31,7 +30,7 @@ fn test_boolean_like_values_parse_as_strings() {
         match parsed.value {
             YamlValue::String(s) => {
                 assert_eq!(
-                    s.as_ref(),
+                    s.as_str(),
                     value,
                     "String value should match input for: {}",
                     value
@@ -61,31 +60,31 @@ false_key: false
     if let YamlValue::Object(map) = &parsed.value {
         // All values are strings now
         assert_eq!(
-            map.get(&Cow::Borrowed("yes_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("yes"))
+            map.get("yes_key").map(|n| &n.value),
+            Some(&YamlValue::String("yes".to_string()))
         );
         assert_eq!(
-            map.get(&Cow::Borrowed("no_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("no"))
+            map.get("no_key").map(|n| &n.value),
+            Some(&YamlValue::String("no".to_string()))
         );
         assert_eq!(
-            map.get(&Cow::Borrowed("on_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("on"))
+            map.get("on_key").map(|n| &n.value),
+            Some(&YamlValue::String("on".to_string()))
         );
         assert_eq!(
-            map.get(&Cow::Borrowed("off_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("off"))
+            map.get("off_key").map(|n| &n.value),
+            Some(&YamlValue::String("off".to_string()))
         );
         assert_eq!(
-            map.get(&Cow::Borrowed("true_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("true"))
+            map.get("true_key").map(|n| &n.value),
+            Some(&YamlValue::String("true".to_string()))
         );
         assert_eq!(
-            map.get(&Cow::Borrowed("false_key")).unwrap().value,
-            YamlValue::String(Cow::Borrowed("false"))
+            map.get("false_key").map(|n| &n.value),
+            Some(&YamlValue::String("false".to_string()))
         );
     } else {
-        panic!("Expected object at root");
+        panic!("Expected object at root")
     }
 }
 
@@ -106,14 +105,14 @@ fn test_boolean_like_values_in_arrays() {
         assert_eq!(items.len(), 6);
 
         // All values are strings
-        assert_eq!(items[0].value, YamlValue::String(Cow::Borrowed("yes")));
-        assert_eq!(items[1].value, YamlValue::String(Cow::Borrowed("no")));
-        assert_eq!(items[2].value, YamlValue::String(Cow::Borrowed("on")));
-        assert_eq!(items[3].value, YamlValue::String(Cow::Borrowed("off")));
-        assert_eq!(items[4].value, YamlValue::String(Cow::Borrowed("true")));
-        assert_eq!(items[5].value, YamlValue::String(Cow::Borrowed("false")));
+        assert_eq!(items[0].value, YamlValue::String("yes".to_string()));
+        assert_eq!(items[1].value, YamlValue::String("no".to_string()));
+        assert_eq!(items[2].value, YamlValue::String("on".to_string()));
+        assert_eq!(items[3].value, YamlValue::String("off".to_string()));
+        assert_eq!(items[4].value, YamlValue::String("true".to_string()));
+        assert_eq!(items[5].value, YamlValue::String("false".to_string()));
     } else {
-        panic!("Expected array at root");
+        panic!("Expected array at root")
     }
 }
 
@@ -130,7 +129,7 @@ fn test_case_sensitive_strings() {
         // All values are strings
         match parsed.value {
             YamlValue::String(s) => {
-                assert_eq!(s.as_ref(), value);
+                assert_eq!(s.as_str(), value);
             }
             YamlValue::Object(_) | YamlValue::Array(_) => panic!(
                 "Expected '{}' to be parsed as a string, got: {:?}",

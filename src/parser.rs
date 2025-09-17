@@ -1,5 +1,4 @@
 use crate::lexer::{Lexer, Token, TokenKind};
-use std::borrow::Cow;
 use std::collections::BTreeMap;
 
 #[derive(Debug, Clone, Copy)]
@@ -10,21 +9,21 @@ enum ChompMode {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum YamlValue<'a> {
-    String(Cow<'a, str>),
-    Array(Vec<YamlNode<'a>>),
-    Object(BTreeMap<Cow<'a, str>, YamlNode<'a>>),
+pub enum YamlValue {
+    String(String),
+    Array(Vec<YamlNode>),
+    Object(BTreeMap<String, YamlNode>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct YamlNode<'a> {
-    pub value: YamlValue<'a>,
-    pub leading_comment: Option<Cow<'a, str>>,
-    pub inline_comment: Option<Cow<'a, str>>,
+pub struct YamlNode {
+    pub value: YamlValue,
+    pub leading_comment: Option<String>,
+    pub inline_comment: Option<String>,
 }
 
-impl<'a> YamlNode<'a> {
-    pub(crate) fn new(value: YamlValue<'a>) -> Self {
+impl YamlNode {
+    pub(crate) fn new(value: YamlValue) -> Self {
         YamlNode {
             value,
             leading_comment: None,
@@ -33,9 +32,9 @@ impl<'a> YamlNode<'a> {
     }
 
     pub(crate) fn with_comments(
-        value: YamlValue<'a>,
-        leading: Option<Cow<'a, str>>,
-        inline: Option<Cow<'a, str>>,
+        value: YamlValue,
+        leading: Option<String>,
+        inline: Option<String>,
     ) -> Self {
         YamlNode {
             value,
@@ -45,7 +44,7 @@ impl<'a> YamlNode<'a> {
     }
 
     // Public constructor for external use
-    pub fn from_value(value: YamlValue<'a>) -> Self {
+    pub fn from_value(value: YamlValue) -> Self {
         YamlNode {
             value,
             leading_comment: None,
@@ -64,7 +63,7 @@ impl<'a> YamlNode<'a> {
     }
 
     /// Returns the object map if this node contains an object
-    pub fn as_object(&self) -> Option<&BTreeMap<Cow<'a, str>, YamlNode<'a>>> {
+    pub fn as_object(&self) -> Option<&BTreeMap<String, YamlNode>> {
         match &self.value {
             YamlValue::Object(map) => Some(map),
             YamlValue::String(_) | YamlValue::Array(_) => None,
@@ -72,7 +71,7 @@ impl<'a> YamlNode<'a> {
     }
 
     /// Returns the array items if this node contains an array
-    pub fn as_array(&self) -> Option<&[YamlNode<'a>]> {
+    pub fn as_array(&self) -> Option<&[YamlNode]> {
         match &self.value {
             YamlValue::Array(items) => Some(items),
             YamlValue::String(_) | YamlValue::Object(_) => None,
@@ -80,12 +79,12 @@ impl<'a> YamlNode<'a> {
     }
 
     /// Gets a child node by key if this node is an object
-    pub fn get(&self, key: &str) -> Option<&YamlNode<'a>> {
+    pub fn get(&self, key: &str) -> Option<&YamlNode> {
         match &self.value {
             YamlValue::Object(map) => {
                 // Try to find the key in the map
                 for (k, v) in map.iter() {
-                    if k.as_ref() == key {
+                    if k == key {
                         return Some(v);
                     }
                 }
@@ -123,7 +122,7 @@ impl<'g> Parser<'g> {
         Parser { tokens, current: 0 }
     }
 
-    pub(crate) fn parse(&mut self) -> Result<YamlNode<'g>, String> {
+    pub(crate) fn parse(&mut self) -> Result<YamlNode, String> {
         self.skip_whitespace_and_newlines();
         let result = self.parse_value(0)?;
         Ok(result)
@@ -172,7 +171,7 @@ impl<'g> Parser<'g> {
         }
     }
 
-    fn collect_comment(&mut self) -> Option<Cow<'g, str>> {
+    fn collect_comment(&mut self) -> Option<String> {
         self.skip_whitespace();
         let token = self.current_token()?;
         if token.kind != TokenKind::Comment {
@@ -180,17 +179,17 @@ impl<'g> Parser<'g> {
         }
         let comment = token.text.trim_start_matches('#').trim();
         self.advance();
-        Some(Cow::Borrowed(comment))
+        Some(comment.to_string())
     }
 
-    fn parse_value(&mut self, min_indent: usize) -> Result<YamlNode<'g>, String> {
+    fn parse_value(&mut self, min_indent: usize) -> Result<YamlNode, String> {
         self.skip_whitespace();
 
         // Collect leading comment if it's on a line by itself
-        let mut leading_comment: Option<Cow<'g, str>> = None;
+        let mut leading_comment: Option<String> = None;
         if let Some(token) = self.current_token() {
             if token.kind == TokenKind::Comment {
-                leading_comment = Some(Cow::Borrowed(token.text.trim_start_matches('#').trim()));
+                leading_comment = Some(token.text.trim_start_matches('#').trim().to_string());
                 self.advance();
                 self.skip_whitespace_and_newlines();
             }
@@ -218,7 +217,7 @@ impl<'g> Parser<'g> {
                 }
 
                 // It's a scalar value - always treat as string
-                YamlNode::new(YamlValue::String(Cow::Borrowed(text)))
+                YamlNode::new(YamlValue::String(text.to_string()))
             }
             TokenKind::String => {
                 let text = token.text;
@@ -228,7 +227,7 @@ impl<'g> Parser<'g> {
                     text
                 };
                 self.advance();
-                YamlNode::new(YamlValue::String(Cow::Borrowed(content)))
+                YamlNode::new(YamlValue::String(content.to_string()))
             }
             TokenKind::Whitespace
             | TokenKind::NewLine
@@ -251,7 +250,7 @@ impl<'g> Parser<'g> {
         ))
     }
 
-    fn parse_inline_value(&mut self) -> Result<YamlNode<'g>, String> {
+    fn parse_inline_value(&mut self) -> Result<YamlNode, String> {
         // Collect tokens until we hit a newline or comment
         let start_token = self
             .current_token()
@@ -269,7 +268,7 @@ impl<'g> Parser<'g> {
                 self.advance();
                 let inline_comment = self.collect_comment();
                 return Ok(YamlNode::with_comments(
-                    YamlValue::String(Cow::Borrowed(content)),
+                    YamlValue::String(content.to_string()),
                     None,
                     inline_comment,
                 ));
@@ -321,11 +320,11 @@ impl<'g> Parser<'g> {
 
         // Everything is a string now
         let value = if let Some(text) = single_token_text.filter(|_| value_parts.len() == 1) {
-            YamlValue::String(Cow::Borrowed(text))
+            YamlValue::String(text.to_string())
         } else {
             // For multi-token values, join them
             let value_str = value_parts.join("");
-            YamlValue::String(Cow::Owned(value_str))
+            YamlValue::String(value_str)
         };
 
         let inline_comment = self.collect_comment();
@@ -333,7 +332,7 @@ impl<'g> Parser<'g> {
         Ok(YamlNode::with_comments(value, None, inline_comment))
     }
 
-    fn parse_array(&mut self, min_indent: usize) -> Result<YamlValue<'g>, String> {
+    fn parse_array(&mut self, min_indent: usize) -> Result<YamlValue, String> {
         let mut items = Vec::new();
 
         while let Some(token) = self.current_token() {
@@ -365,7 +364,7 @@ impl<'g> Parser<'g> {
         &mut self,
         base_indent: usize,
         is_literal: bool,
-    ) -> Result<YamlNode<'g>, String> {
+    ) -> Result<YamlNode, String> {
         // Skip any remaining whitespace and comments on the same line
         self.skip_whitespace();
 
@@ -472,7 +471,11 @@ impl<'g> Parser<'g> {
         // Process the lines based on mode
         let result = if is_literal {
             // Literal mode: preserve line breaks
-            let mut result = lines.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n");
+            let mut result = lines
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join("\n");
 
             // Apply chomping
             match chomp_mode {
@@ -545,10 +548,10 @@ impl<'g> Parser<'g> {
             result
         };
 
-        Ok(YamlNode::new(YamlValue::String(Cow::Owned(result))))
+        Ok(YamlNode::new(YamlValue::String(result)))
     }
 
-    fn parse_object(&mut self, min_indent: usize) -> Result<YamlNode<'g>, String> {
+    fn parse_object(&mut self, min_indent: usize) -> Result<YamlNode, String> {
         let mut map = BTreeMap::new();
 
         while let Some(token) = self.current_token() {
@@ -563,7 +566,7 @@ impl<'g> Parser<'g> {
             }
 
             let key_column = token.column;
-            let key = Cow::Borrowed(token.text);
+            let key = token.text.to_string();
             self.advance();
 
             self.skip_whitespace();
@@ -638,11 +641,11 @@ mod tests {
         if let YamlValue::Object(map) = &result.value {
             assert_eq!(map.len(), 2);
 
-            let name_node = map.get(&Cow::Borrowed("name")).unwrap();
-            assert_eq!(name_node.value, YamlValue::String(Cow::Borrowed("John")));
+            let name_node = map.get("name").unwrap();
+            assert_eq!(name_node.value, YamlValue::String("John".to_string()));
 
-            let age_node = map.get(&Cow::Borrowed("age")).unwrap();
-            assert_eq!(age_node.value, YamlValue::String(Cow::Borrowed("30")));
+            let age_node = map.get("age").unwrap();
+            assert_eq!(age_node.value, YamlValue::String("30".to_string()));
         } else {
             panic!("Expected object");
         }
@@ -656,9 +659,9 @@ mod tests {
 
         if let YamlValue::Array(items) = &result.value {
             assert_eq!(items.len(), 3);
-            assert_eq!(items[0].value, YamlValue::String(Cow::Borrowed("apple")));
-            assert_eq!(items[1].value, YamlValue::String(Cow::Borrowed("banana")));
-            assert_eq!(items[2].value, YamlValue::String(Cow::Borrowed("cherry")));
+            assert_eq!(items[0].value, YamlValue::String("apple".to_string()));
+            assert_eq!(items[1].value, YamlValue::String("banana".to_string()));
+            assert_eq!(items[2].value, YamlValue::String("cherry".to_string()));
         } else {
             panic!("Expected array");
         }
@@ -671,11 +674,8 @@ mod tests {
         let result = parser.parse().unwrap();
 
         if let YamlValue::Object(map) = &result.value {
-            let name_node = map.get(&Cow::Borrowed("name")).unwrap();
-            assert_eq!(
-                name_node.inline_comment,
-                Some(Cow::Borrowed("inline comment"))
-            );
+            let name_node = map.get("name").unwrap();
+            assert_eq!(name_node.inline_comment, Some("inline comment".to_string()));
         } else {
             panic!("Expected object");
         }
@@ -689,20 +689,20 @@ mod tests {
 
         if let YamlValue::Object(map) = &result.value {
             assert_eq!(
-                map.get(&Cow::Borrowed("enabled")).unwrap().value,
-                YamlValue::String(Cow::Borrowed("true"))
+                map.get("enabled").unwrap().value,
+                YamlValue::String("true".to_string())
             );
             assert_eq!(
-                map.get(&Cow::Borrowed("count")).unwrap().value,
-                YamlValue::String(Cow::Borrowed("42"))
+                map.get("count").unwrap().value,
+                YamlValue::String("42".to_string())
             );
             assert_eq!(
-                map.get(&Cow::Borrowed("ratio")).unwrap().value,
-                YamlValue::String(Cow::Borrowed("2.5"))
+                map.get("ratio").unwrap().value,
+                YamlValue::String("2.5".to_string())
             );
             assert_eq!(
-                map.get(&Cow::Borrowed("empty")).unwrap().value,
-                YamlValue::String(Cow::Borrowed("null"))
+                map.get("empty").unwrap().value,
+                YamlValue::String("null".to_string())
             );
         } else {
             panic!("Expected object");

@@ -1,17 +1,16 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, emit, parse};
+use yamp::{emit, parse, YamlValue};
 
 #[test]
 fn test_octal_footgun() {
     // Leading zeros should be treated as strings, not octal numbers
     let test_cases = [
-        ("0755", YamlValue::String(Cow::Borrowed("0755"))), // File permissions
-        ("0123", YamlValue::String(Cow::Borrowed("0123"))), // Would be 83 in octal
-        ("0001", YamlValue::String(Cow::Borrowed("0001"))), // Leading zeros
-        ("0", YamlValue::String(Cow::Borrowed("0"))),       // Single zero is now string
-        ("123", YamlValue::String(Cow::Borrowed("123"))),   // Regular number is now string
+        ("0755", YamlValue::String("0755".to_string())), // File permissions
+        ("0123", YamlValue::String("0123".to_string())), // Would be 83 in octal
+        ("0001", YamlValue::String("0001".to_string())), // Leading zeros
+        ("0", YamlValue::String("0".to_string())),       // Single zero is now string
+        ("123", YamlValue::String("123".to_string())),   // Regular number is now string
     ];
 
     for (input, expected) in test_cases {
@@ -19,10 +18,10 @@ fn test_octal_footgun() {
         let parsed = parse(&yaml).unwrap_or_else(|_| panic!("Failed to parse: {}", input));
 
         if let YamlValue::Object(map) = &parsed.value {
-            let actual = &map.get(&Cow::Borrowed("value")).unwrap().value;
+            let actual = &map.get("value").expect("value not found").value;
             assert_eq!(*actual, expected, "Failed for input: {}", input);
         } else {
-            panic!("Expected object");
+            panic!("Expected object")
         }
     }
 }
@@ -31,11 +30,11 @@ fn test_octal_footgun() {
 fn test_version_number_preservation() {
     // Version numbers with trailing zeros should be preserved as strings
     let test_cases = [
-        ("3.10", YamlValue::String(Cow::Borrowed("3.10"))), // Version number
-        ("1.20", YamlValue::String(Cow::Borrowed("1.20"))), // Trailing zero
-        ("2.0", YamlValue::String(Cow::Borrowed("2.0"))),   // Trailing zero
-        ("3.25", YamlValue::String(Cow::Borrowed("3.25"))), // Now also string
-        ("3.5", YamlValue::String(Cow::Borrowed("3.5"))),   // Now also string
+        ("3.10", YamlValue::String("3.10".to_string())), // Version number
+        ("1.20", YamlValue::String("1.20".to_string())), // Trailing zero
+        ("2.0", YamlValue::String("2.0".to_string())),   // Trailing zero
+        ("3.25", YamlValue::String("3.25".to_string())), // Now also string
+        ("3.5", YamlValue::String("3.5".to_string())),   // Now also string
     ];
 
     for (input, expected) in test_cases {
@@ -43,10 +42,10 @@ fn test_version_number_preservation() {
         let parsed = parse(&yaml).unwrap_or_else(|_| panic!("Failed to parse: {}", input));
 
         if let YamlValue::Object(map) = &parsed.value {
-            let actual = &map.get(&Cow::Borrowed("version")).unwrap().value;
+            let actual = &map.get("version").expect("version not found").value;
             assert_eq!(*actual, expected, "Failed for input: {}", input);
         } else {
-            panic!("Expected object");
+            panic!("Expected object")
         }
     }
 }
@@ -65,23 +64,23 @@ just_tilde: ~
     if let YamlValue::Object(map) = &parsed.value {
         // null is now a string "null"
         assert!(matches!(
-            map.get(&Cow::Borrowed("null_value")).unwrap().value,
+            map.get("null_value").expect("null_value not found").value,
             YamlValue::String(ref s) if s == "null"
         ));
 
         // Tilde paths should be strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("tilde_path")).unwrap().value,
+            map.get("tilde_path").expect("tilde_path not found").value,
             YamlValue::String(ref s) if s == "~/.ssh/config"
         ));
 
         // Just tilde should be a string now (not null)
         assert!(matches!(
-            map.get(&Cow::Borrowed("just_tilde")).unwrap().value,
+            map.get("just_tilde").expect("just_tilde not found").value,
             YamlValue::String(ref s) if s == "~"
         ));
     } else {
-        panic!("Expected object");
+        panic!("Expected object")
     }
 }
 
@@ -98,11 +97,11 @@ country_yes: YES
     if let YamlValue::Object(map) = &parsed.value {
         // These should all be strings, not booleans
         assert!(matches!(
-            map.get(&Cow::Borrowed("country_no")).unwrap().value,
+            map.get("country_no").expect("country_no not found").value,
             YamlValue::String(ref s) if s == "NO"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("country_yes")).unwrap().value,
+            map.get("country_yes").expect("country_yes not found").value,
             YamlValue::String(ref s) if s == "YES"
         ));
     }
@@ -123,21 +122,21 @@ regular_id: e1234
     if let YamlValue::Object(map) = &parsed.value {
         // All values are now strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("real_scientific")).unwrap().value,
+            map.get("real_scientific").expect("real_scientific not found").value,
             YamlValue::String(ref s) if s == "1.2e3"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("real_scientific2")).unwrap().value,
+            map.get("real_scientific2").expect("real_scientific2 not found").value,
             YamlValue::String(ref s) if s == "1e10"
         ));
 
         // Git SHAs and IDs that happen to look like scientific notation should be strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("git_sha")).unwrap().value,
+            map.get("git_sha").expect("git_sha not found").value,
             YamlValue::String(ref s) if s == "2e5a8d9"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("regular_id")).unwrap().value,
+            map.get("regular_id").expect("regular_id not found").value,
             YamlValue::String(ref s) if s == "e1234"
         ));
     }
@@ -159,23 +158,23 @@ inf_upper: .Inf
     if let YamlValue::Object(map) = &parsed.value {
         // All special float values should be strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("inf_value")).unwrap().value,
+            map.get("inf_value").expect("inf_value not found").value,
             YamlValue::String(ref s) if s == ".inf"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("neg_inf")).unwrap().value,
+            map.get("neg_inf").expect("neg_inf not found").value,
             YamlValue::String(ref s) if s == "-.inf"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("nan_value")).unwrap().value,
+            map.get("nan_value").expect("nan_value not found").value,
             YamlValue::String(ref s) if s == ".nan"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("nan_upper")).unwrap().value,
+            map.get("nan_upper").expect("nan_upper not found").value,
             YamlValue::String(ref s) if s == ".NaN"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("inf_upper")).unwrap().value,
+            map.get("inf_upper").expect("inf_upper not found").value,
             YamlValue::String(ref s) if s == ".Inf"
         ));
     }
@@ -194,16 +193,16 @@ regular_num: 12345
     if let YamlValue::Object(map) = &parsed.value {
         // ZIP codes with leading zeros should be strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("zip_code")).unwrap().value,
+            map.get("zip_code").expect("zip_code not found").value,
             YamlValue::String(ref s) if s == "01234"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("item_code")).unwrap().value,
+            map.get("item_code").expect("item_code not found").value,
             YamlValue::String(ref s) if s == "00042"
         ));
         // Regular numbers are now also strings
         assert!(matches!(
-            map.get(&Cow::Borrowed("regular_num")).unwrap().value,
+            map.get("regular_num").expect("regular_num not found").value,
             YamlValue::String(ref s) if s == "12345"
         ));
     }
@@ -245,15 +244,15 @@ ratio: 1:100
     if let YamlValue::Object(map) = &parsed.value {
         // These should be strings, not parsed as sexagesimal
         assert!(matches!(
-            map.get(&Cow::Borrowed("time1")).unwrap().value,
+            map.get("time1").expect("time1 not found").value,
             YamlValue::String(ref s) if s == "12:34:56"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("time2")).unwrap().value,
+            map.get("time2").expect("time2 not found").value,
             YamlValue::String(ref s) if s == "1:2:3"
         ));
         assert!(matches!(
-            map.get(&Cow::Borrowed("ratio")).unwrap().value,
+            map.get("ratio").expect("ratio not found").value,
             YamlValue::String(ref s) if s == "1:100"
         ));
     }

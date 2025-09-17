@@ -16,7 +16,7 @@ impl Emitter {
         }
     }
 
-    pub(crate) fn emit(&mut self, node: &YamlNode<'_>) -> String {
+    pub(crate) fn emit(&mut self, node: &YamlNode) -> String {
         self.output.clear(); // Clear previous content instead of creating new String
         self.emit_node(node, false);
         std::mem::take(&mut self.output) // Move instead of clone
@@ -47,7 +47,7 @@ impl Emitter {
         }
     }
 
-    fn emit_node(&mut self, node: &YamlNode<'_>, inline: bool) {
+    fn emit_node(&mut self, node: &YamlNode, inline: bool) {
         // Write leading comment if present
         if !inline {
             if let Some(ref comment) = node.leading_comment {
@@ -119,7 +119,7 @@ impl Emitter {
         }
     }
 
-    fn emit_array(&mut self, items: &[YamlNode<'_>]) {
+    fn emit_array(&mut self, items: &[YamlNode]) {
         for (i, item) in items.iter().enumerate() {
             if i > 0 {
                 self.output.push('\n');
@@ -213,7 +213,7 @@ impl Emitter {
         }
     }
 
-    fn emit_object(&mut self, node: &YamlNode<'_>) {
+    fn emit_object(&mut self, node: &YamlNode) {
         let YamlValue::Object(map) = &node.value else {
             return;
         };
@@ -312,7 +312,6 @@ impl Default for Emitter {
 mod tests {
     use super::*;
     use crate::parse;
-    use std::borrow::Cow;
 
     #[test]
     fn test_emit_simple_object() {
@@ -345,12 +344,12 @@ mod tests {
 
         let mut map = BTreeMap::new();
         map.insert(
-            Cow::Borrowed("key:with:colons"),
-            YamlNode::from_value(YamlValue::String(Cow::Borrowed("value"))),
+            "key:with:colons".to_string(),
+            YamlNode::from_value(YamlValue::String("value".to_string())),
         );
         map.insert(
-            Cow::Borrowed("normal_key"),
-            YamlNode::from_value(YamlValue::String(Cow::Borrowed("value with spaces"))),
+            "normal_key".to_string(),
+            YamlNode::from_value(YamlValue::String("value with spaces".to_string())),
         );
 
         let node = YamlNode::from_value(YamlValue::Object(map));
@@ -381,8 +380,8 @@ mod tests {
 
         let mut map = BTreeMap::new();
         map.insert(
-            Cow::Borrowed("description"),
-            YamlNode::from_value(YamlValue::String(Cow::Borrowed("Line 1\nLine 2\nLine 3\n"))),
+            "description".to_string(),
+            YamlNode::from_value(YamlValue::String("Line 1\nLine 2\nLine 3\n".to_string())),
         );
 
         let node = YamlNode::from_value(YamlValue::Object(map));

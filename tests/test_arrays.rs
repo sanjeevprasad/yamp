@@ -1,13 +1,12 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
-use yamp::{YamlNode, YamlValue, emit, parse};
+use yamp::{emit, parse, YamlNode, YamlValue};
 
 #[test]
 fn test_simple_array() {
     let yaml = "- item1\n- item2\n- item3";
-    let result = parse(yaml).expect("Failed to parse");
+    let result = parse(yaml).expect("Failed to parse YAML");
 
     if let YamlValue::Array(items) = &result.value {
         assert_eq!(items.len(), 3);
@@ -17,13 +16,12 @@ fn test_simple_array() {
 #[test]
 fn test_nested_arrays() {
     let yaml = "fruits:\n  - apple\n  - banana\n  - orange";
-    let result = parse(yaml).expect("Failed to parse");
+    let result = parse(yaml).expect("Failed to parse YAML");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(fruits_node) = map.get(&Cow::Borrowed("fruits")) {
-            if let YamlValue::Array(items) = &fruits_node.value {
-                assert_eq!(items.len(), 3);
-            }
+        let fruits_node = map.get("fruits").expect("fruits key not found");
+        if let YamlValue::Array(items) = &fruits_node.value {
+            assert_eq!(items.len(), 3);
         }
     }
 }
@@ -31,14 +29,14 @@ fn test_nested_arrays() {
 #[test]
 fn test_array_of_objects() {
     let yaml = "- name: Alice\n  age: 30\n- name: Bob\n  age: 25";
-    let result = parse(yaml).expect("Failed to parse");
+    let result = parse(yaml).expect("Failed to parse YAML");
 
     if let YamlValue::Array(items) = &result.value {
         assert_eq!(items.len(), 2);
 
         if let YamlValue::Object(obj) = &items[0].value {
-            assert!(obj.contains_key(&Cow::Borrowed("name")));
-            assert!(obj.contains_key(&Cow::Borrowed("age")));
+            assert!(obj.contains_key("name"));
+            assert!(obj.contains_key("age"));
         }
     }
 }
@@ -51,13 +49,12 @@ fn test_array_of_objects_inline_format() {
   - enabled: true
     name: feature2"#;
 
-    let result = parse(yaml).expect("Failed to parse");
+    let result = parse(yaml).expect("Failed to parse YAML");
 
     if let YamlValue::Object(map) = &result.value {
-        if let Some(features) = map.get(&Cow::Borrowed("features")) {
-            if let YamlValue::Array(items) = &features.value {
-                assert_eq!(items.len(), 2);
-            }
+        let features = map.get("features").expect("features key not found");
+        if let YamlValue::Array(items) = &features.value {
+            assert_eq!(items.len(), 2);
         }
     }
 }
@@ -65,13 +62,13 @@ fn test_array_of_objects_inline_format() {
 #[test]
 fn test_manual_array_construction() {
     let items = vec![
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item1"))),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("item2"))),
+        YamlNode::from_value(YamlValue::String("item1".to_string())),
+        YamlNode::from_value(YamlValue::String("item2".to_string())),
     ];
 
     let mut root = BTreeMap::new();
     root.insert(
-        Cow::Borrowed("list"),
+        "list".to_string(),
         YamlNode::from_value(YamlValue::Array(items)),
     );
 

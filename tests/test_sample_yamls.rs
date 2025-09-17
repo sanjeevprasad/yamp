@@ -42,7 +42,10 @@ fn test_all_sample_yamls() {
     let mut failed = 0;
 
     for yaml_file in yaml_files {
-        let file_name = yaml_file.file_name().unwrap().to_string_lossy();
+        let file_name = yaml_file
+            .file_name()
+            .expect("Failed to get file name")
+            .to_string_lossy();
         print!("Testing {}: ", file_name);
 
         // Read the file content
@@ -203,7 +206,10 @@ fn test_real_world_configs() {
             continue;
         };
 
-        if real_world_patterns.iter().any(|pattern| file_name.contains(pattern)) {
+        if real_world_patterns
+            .iter()
+            .any(|pattern| file_name.contains(pattern))
+        {
             real_world_files.push(path);
         }
     }

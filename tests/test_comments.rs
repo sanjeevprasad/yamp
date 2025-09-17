@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, emit, parse};
+use yamp::{emit, parse, YamlValue};
 
 #[test]
 fn test_inline_comments() {
@@ -9,22 +8,21 @@ fn test_inline_comments() {
     let result = parse(yaml).expect("Failed to parse");
 
     if let YamlValue::Object(map) = &result.value {
-        let node = map.get(&Cow::Borrowed("key")).unwrap();
-        assert_eq!(
-            node.inline_comment,
-            Some(Cow::Borrowed("This is a comment"))
-        );
+        let node = map.get("key").expect("key not found");
+        assert_eq!(node.inline_comment, Some("This is a comment".to_string()));
     }
 }
 
 #[test]
 fn test_multiple_inline_comments() {
-    let yaml = "# Header comment\nkey: value # inline comment\nage: 30";
+    let yaml = r#"# Header comment
+key: value # inline comment
+age: 30"#;
     let result = parse(yaml).expect("Failed to parse");
 
     if let YamlValue::Object(map) = &result.value {
-        let node = map.get(&Cow::Borrowed("key")).unwrap();
-        assert_eq!(node.inline_comment, Some(Cow::Borrowed("inline comment")));
+        let node = map.get("key").expect("key not found");
+        assert_eq!(node.inline_comment, Some("inline comment".to_string()));
     }
 }
 

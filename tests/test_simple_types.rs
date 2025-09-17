@@ -1,8 +1,7 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
 use std::collections::BTreeMap;
-use yamp::{YamlNode, YamlValue, emit, parse};
+use yamp::{emit, parse, YamlNode, YamlValue};
 
 #[test]
 fn test_basic_string_parsing() {
@@ -28,15 +27,19 @@ fn test_basic_string_parsing() {
 
         let map = match &parsed.value {
             YamlValue::Object(m) => m,
-            YamlValue::String(_) | YamlValue::Array(_) => panic!("Expected YamlValue::Object, got {:?}", parsed.value),
+            YamlValue::String(_) | YamlValue::Array(_) => {
+                panic!("Expected YamlValue::Object, got {:?}", parsed.value)
+            }
         };
-        let value_node = map.get(&Cow::Borrowed("value"))
-            .expect("Key 'value' not found in map");
+        let value_node = map.get("value").expect("value key not found");
         let s = match &value_node.value {
             YamlValue::String(s) => s,
-            YamlValue::Object(_) | YamlValue::Array(_) => panic!("Expected YamlValue::String for input '{}', got {:?}", input, value_node.value),
+            YamlValue::Object(_) | YamlValue::Array(_) => panic!(
+                "Expected YamlValue::String for input '{}', got {:?}",
+                input, value_node.value
+            ),
         };
-        assert_eq!(s.as_ref(), expected, "Failed for input: {}", input);
+        assert_eq!(s.as_str(), expected, "Failed for input: {}", input);
     }
 }
 
@@ -57,11 +60,13 @@ items:
         YamlValue::Object(m) => m,
         _ => panic!("Expected YamlValue::Object, got {:?}", parsed.value),
     };
-    let items_node = map.get(&Cow::Borrowed("items"))
-        .expect("Key 'items' not found in map");
+    let items_node = map.get("items").expect("items key not found");
     let items = match &items_node.value {
         YamlValue::Array(arr) => arr,
-        YamlValue::String(_) | YamlValue::Object(_) => panic!("Expected YamlValue::Array for items, got {:?}", items_node.value),
+        YamlValue::String(_) | YamlValue::Object(_) => panic!(
+            "Expected YamlValue::Array for items, got {:?}",
+            items_node.value
+        ),
     };
     assert_eq!(items.len(), 5);
 
@@ -69,9 +74,12 @@ items:
     for (i, expected_val) in expected.iter().enumerate() {
         let s = match &items[i].value {
             YamlValue::String(s) => s,
-            YamlValue::Object(_) | YamlValue::Array(_) => panic!("Expected YamlValue::String at index {}, got {:?}", i, items[i].value),
+            YamlValue::Object(_) | YamlValue::Array(_) => panic!(
+                "Expected YamlValue::String at index {}, got {:?}",
+                i, items[i].value
+            ),
         };
-        assert_eq!(s.as_ref(), *expected_val);
+        assert_eq!(s.as_str(), *expected_val);
     }
 }
 
@@ -93,57 +101,75 @@ root:
         YamlValue::Object(m) => m,
         _ => panic!("Expected YamlValue::Object, got {:?}", parsed.value),
     };
-    let root_node = root_map.get(&Cow::Borrowed("root"))
-        .expect("Key 'root' not found in map");
+    let root_node = root_map.get("root").expect("root key not found");
     let root_obj = match &root_node.value {
         YamlValue::Object(obj) => obj,
-        _ => panic!("Expected YamlValue::Object for root, got {:?}", root_node.value),
+        _ => panic!(
+            "Expected YamlValue::Object for root, got {:?}",
+            root_node.value
+        ),
     };
     assert_eq!(root_obj.len(), 2);
 
     // Check child1
-    let child1_node = root_obj.get(&Cow::Borrowed("child1"))
-        .expect("Key 'child1' not found in root");
+    let child1_node = root_obj.get("child1").expect("child1 key not found");
     let child1 = match &child1_node.value {
         YamlValue::Object(obj) => obj,
-        _ => panic!("Expected YamlValue::Object for child1, got {:?}", child1_node.value),
+        _ => panic!(
+            "Expected YamlValue::Object for child1, got {:?}",
+            child1_node.value
+        ),
     };
-    let value_node = child1.get(&Cow::Borrowed("value"))
-        .expect("Key 'value' not found in child1");
+    let value_node = child1.get("value").expect("value key not found in child1");
     let s = match &value_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for child1.value, got {:?}", value_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for child1.value, got {:?}",
+            value_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "test");
-    let number_node = child1.get(&Cow::Borrowed("number"))
-        .expect("Key 'number' not found in child1");
+    assert_eq!(s.as_str(), "test");
+    let number_node = child1
+        .get("number")
+        .expect("number key not found in child1");
     let s = match &number_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for child1.number, got {:?}", number_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for child1.number, got {:?}",
+            number_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "42");
+    assert_eq!(s.as_str(), "42");
 
     // Check child2
-    let child2_node = root_obj.get(&Cow::Borrowed("child2"))
-        .expect("Key 'child2' not found in root");
+    let child2_node = root_obj.get("child2").expect("child2 key not found");
     let child2 = match &child2_node.value {
         YamlValue::Object(obj) => obj,
-        _ => panic!("Expected YamlValue::Object for child2, got {:?}", child2_node.value),
+        _ => panic!(
+            "Expected YamlValue::Object for child2, got {:?}",
+            child2_node.value
+        ),
     };
-    let flag_node = child2.get(&Cow::Borrowed("flag"))
-        .expect("Key 'flag' not found in child2");
+    let flag_node = child2.get("flag").expect("flag key not found in child2");
     let s = match &flag_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for child2.flag, got {:?}", flag_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for child2.flag, got {:?}",
+            flag_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "true");
-    let version_node = child2.get(&Cow::Borrowed("version"))
-        .expect("Key 'version' not found in child2");
+    assert_eq!(s.as_str(), "true");
+    let version_node = child2
+        .get("version")
+        .expect("version key not found in child2");
     let s = match &version_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for child2.version, got {:?}", version_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for child2.version, got {:?}",
+            version_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "3.10");
+    assert_eq!(s.as_str(), "3.10");
 }
 
 #[test]
@@ -182,27 +208,33 @@ unquoted: hello world
         YamlValue::Object(m) => m,
         _ => panic!("Expected YamlValue::Object, got {:?}", parsed.value),
     };
-    let single_node = map.get(&Cow::Borrowed("single"))
-        .expect("Key 'single' not found in map");
+    let single_node = map.get("single").expect("single key not found");
     let s = match &single_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for single, got {:?}", single_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for single, got {:?}",
+            single_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "hello world");
-    let double_node = map.get(&Cow::Borrowed("double"))
-        .expect("Key 'double' not found in map");
+    assert_eq!(s.as_str(), "hello world");
+    let double_node = map.get("double").expect("double key not found");
     let s = match &double_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for double, got {:?}", double_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for double, got {:?}",
+            double_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "hello world");
-    let unquoted_node = map.get(&Cow::Borrowed("unquoted"))
-        .expect("Key 'unquoted' not found in map");
+    assert_eq!(s.as_str(), "hello world");
+    let unquoted_node = map.get("unquoted").expect("unquoted key not found");
     let s = match &unquoted_node.value {
         YamlValue::String(s) => s,
-        _ => panic!("Expected YamlValue::String for unquoted, got {:?}", unquoted_node.value),
+        _ => panic!(
+            "Expected YamlValue::String for unquoted, got {:?}",
+            unquoted_node.value
+        ),
     };
-    assert_eq!(s.as_ref(), "hello world");
+    assert_eq!(s.as_str(), "hello world");
 }
 
 #[test]
@@ -210,12 +242,12 @@ fn test_manual_construction() {
     // Test manual construction of YAML values
     let mut map = BTreeMap::new();
     map.insert(
-        Cow::Borrowed("name"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("Test"))),
+        "name".to_string(),
+        YamlNode::from_value(YamlValue::String("Test".to_string())),
     );
     map.insert(
-        Cow::Borrowed("count"),
-        YamlNode::from_value(YamlValue::String(Cow::Borrowed("42"))),
+        "count".to_string(),
+        YamlNode::from_value(YamlValue::String("42".to_string())),
     );
 
     let root = YamlNode::from_value(YamlValue::Object(map));

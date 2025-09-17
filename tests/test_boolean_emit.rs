@@ -1,7 +1,6 @@
 #![deny(clippy::all)]
 
-use std::borrow::Cow;
-use yamp::{YamlValue, emit, parse};
+use yamp::{emit, parse, YamlValue};
 
 #[test]
 fn test_emit_non_standard_booleans_as_strings() {
@@ -14,27 +13,18 @@ test_true: true
 test_false: false
 "#;
 
-    let parsed = parse(yaml).expect("Failed to parse");
+    let parsed = parse(yaml).expect("Failed to parse YAML");
 
     // Verify parsing - all values are now strings
     if let YamlValue::Object(map) = &parsed.value {
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_yes")).unwrap().value, YamlValue::String(ref s) if s == "yes")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_no")).unwrap().value, YamlValue::String(ref s) if s == "no")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_on")).unwrap().value, YamlValue::String(ref s) if s == "on")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_off")).unwrap().value, YamlValue::String(ref s) if s == "off")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_true")).unwrap().value, YamlValue::String(ref s) if s == "true")
-        );
-        assert!(
-            matches!(map.get(&Cow::Borrowed("test_false")).unwrap().value, YamlValue::String(ref s) if s == "false")
+        assert_eq!(map.get("test_yes").and_then(|n| n.as_str()), Some("yes"));
+        assert_eq!(map.get("test_no").and_then(|n| n.as_str()), Some("no"));
+        assert_eq!(map.get("test_on").and_then(|n| n.as_str()), Some("on"));
+        assert_eq!(map.get("test_off").and_then(|n| n.as_str()), Some("off"));
+        assert_eq!(map.get("test_true").and_then(|n| n.as_str()), Some("true"));
+        assert_eq!(
+            map.get("test_false").and_then(|n| n.as_str()),
+            Some("false")
         );
     }
 
@@ -55,27 +45,31 @@ test_false: false
 fn test_roundtrip_boolean_strings() {
     let yaml = "bool_string: yes\ntrue_bool: true";
 
-    let parsed = parse(yaml).expect("Failed to parse");
+    let parsed = parse(yaml).expect("Failed to parse YAML");
     let emitted = emit(&parsed);
-    let reparsed = parse(&emitted).expect("Failed to reparse");
+    let reparsed = parse(&emitted).expect("Failed to reparse emitted YAML");
 
     // Verify the roundtrip preserves values - all are strings now
     if let YamlValue::Object(original_map) = &parsed.value {
         if let YamlValue::Object(reparsed_map) = &reparsed.value {
             // yes should remain a string
-            assert!(
-                matches!(original_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
+            assert_eq!(
+                original_map.get("bool_string").and_then(|n| n.as_str()),
+                Some("yes")
             );
-            assert!(
-                matches!(reparsed_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
+            assert_eq!(
+                reparsed_map.get("bool_string").and_then(|n| n.as_str()),
+                Some("yes")
             );
 
             // true is now also a string
-            assert!(
-                matches!(original_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
+            assert_eq!(
+                original_map.get("true_bool").and_then(|n| n.as_str()),
+                Some("true")
             );
-            assert!(
-                matches!(reparsed_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
+            assert_eq!(
+                reparsed_map.get("true_bool").and_then(|n| n.as_str()),
+                Some("true")
             );
         }
     }

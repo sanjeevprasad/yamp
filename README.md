@@ -88,7 +88,6 @@ All values are treated as strings, avoiding YAML's type confusion:
 
 ```rust
 use yamp::{parse, emit, YamlValue};
-use std::borrow::Cow;
 
 fn main() {
     let yaml = r#"
@@ -112,8 +111,8 @@ permissions: 0755
 
     // Or using traditional approach for more control
     if let YamlValue::Object(map) = &parsed.value {
-        let age = &map.get(&Cow::Borrowed("age")).unwrap().value;
-        assert_eq!(age, &YamlValue::String(Cow::Borrowed("30")));
+        let age = &map.get("age").unwrap().value;
+        assert_eq!(age, &YamlValue::String("30".to_string()));
     }
 
     // Emit back to YAML
@@ -128,7 +127,6 @@ YAMP supports YAML multiline strings while maintaining the all-strings philosoph
 
 ```rust
 use yamp::{parse, YamlValue};
-use std::borrow::Cow;
 
 fn main() {
     let yaml = r#"
@@ -145,13 +143,13 @@ summary: >
 
     if let YamlValue::Object(map) = &parsed.value {
         // Literal style (|) preserves line breaks
-        let desc = &map.get(&Cow::Borrowed("description")).unwrap().value;
+        let desc = &map.get("description").unwrap().value;
         if let YamlValue::String(s) = desc {
             assert!(s.contains("\n"));
         }
 
         // Folded style (>) joins lines with spaces
-        let summary = &map.get(&Cow::Borrowed("summary")).unwrap().value;
+        let summary = &map.get("summary").unwrap().value;
         if let YamlValue::String(s) = summary {
             assert!(!s.contains("\n"));
             assert!(s.contains("string that joins"));
@@ -223,7 +221,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-yamp = "0.1.0"
+yamp = "0.1.1"
 ```
 
 ## Contributing
