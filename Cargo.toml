@@ -7,8 +7,10 @@ description = "Yet Another Minimal Parser - A safe, predictable YAML parser that
 readme      = "README.md"
 license     = "MIT"
 repository  = "https://github.com/sanjeevprasad/yamp"
+documentation = "https://docs.rs/yamp"
 keywords    = ["yaml", "parser", "safe", "string-only", "predictable"]
 categories  = ["parser-implementations", "config"]
+exclude     = ["sample_yamls/**", "test.yaml", ".gitignore"]
 
 [dependencies]
 
