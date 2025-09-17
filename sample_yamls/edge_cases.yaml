@@ -1,0 +1,21 @@
+empty_string: ""
+empty_array: []
+special_keys:
+  "key with spaces": value1
+  "key:with:colons": value2
+  "key#with#hash": value3
+
+nested_arrays:
+  - - item1
+    - item2
+  - - item3
+    - item4
+
+mixed_nesting:
+  level1:
+    - name: item1
+      nested:
+        deep: value
+    - name: item2
+      nested:
+        deep: another

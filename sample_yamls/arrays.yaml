@@ -1,0 +1,13 @@
+fruits:
+  - apple
+  - banana
+  - orange
+numbers:
+  - 1
+  - 2
+  - 3
+mixed:
+  - string
+  - 42
+  - true
+  - null

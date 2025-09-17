@@ -1,0 +1,7 @@
+normal_string: hello
+quoted_string: "hello world"
+string_with_colon: "key: value"
+string_with_hash: "text # not a comment"
+string_with_quotes: "He said \"hello\""
+numeric_string: "123"
+boolean_string: "true"

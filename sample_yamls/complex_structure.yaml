@@ -1,0 +1,33 @@
+application:
+  name: E-commerce Platform
+  version: 2.1.0
+  environment: production
+
+services:
+  - name: web-server
+    port: 8080
+    replicas: 3
+    config:
+      memory: 512Mi
+      cpu: 0.5
+  - name: database
+    port: 5432
+    replicas: 1
+    config:
+      memory: 1Gi
+      cpu: 1.0
+      storage: 50Gi
+
+monitoring:
+  enabled: true
+  metrics:
+    - cpu_usage
+    - memory_usage
+    - request_count
+  alerts:
+    - threshold: 80
+      metric: cpu_usage
+      action: scale_up
+    - threshold: 90
+      metric: memory_usage
+      action: alert_admin

@@ -1,0 +1,647 @@
+use crate::lexer::{Lexer, Token, TokenKind};
+use std::borrow::Cow;
+use std::collections::BTreeMap;
+
+#[derive(Debug, Clone, Copy)]
+enum ChompMode {
+    Strip, // - remove trailing newlines
+    Clip,  // default - single newline
+    Keep,  // + keep all trailing newlines
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum YamlValue<'a> {
+    String(Cow<'a, str>),
+    Array(Vec<YamlNode<'a>>),
+    Object(BTreeMap<Cow<'a, str>, YamlNode<'a>>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct YamlNode<'a> {
+    pub value: YamlValue<'a>,
+    pub leading_comment: Option<Cow<'a, str>>,
+    pub inline_comment: Option<Cow<'a, str>>,
+}
+
+impl<'a> YamlNode<'a> {
+    pub(crate) fn new(value: YamlValue<'a>) -> Self {
+        YamlNode {
+            value,
+            leading_comment: None,
+            inline_comment: None,
+        }
+    }
+
+    pub(crate) fn with_comments(
+        value: YamlValue<'a>,
+        leading: Option<Cow<'a, str>>,
+        inline: Option<Cow<'a, str>>,
+    ) -> Self {
+        YamlNode {
+            value,
+            leading_comment: leading,
+            inline_comment: inline,
+        }
+    }
+
+    // Public constructor for external use
+    pub fn from_value(value: YamlValue<'a>) -> Self {
+        YamlNode {
+            value,
+            leading_comment: None,
+            inline_comment: None,
+        }
+    }
+}
+
+pub(crate) struct Parser<'g> {
+    tokens: Vec<Token<'g>>,
+    current: usize,
+}
+
+impl<'g> Parser<'g> {
+    pub(crate) fn new(source: &'g str) -> Self {
+        let mut lexer = Lexer::new(source);
+        let tokens = lexer.tokenize();
+        Parser { tokens, current: 0 }
+    }
+
+    pub(crate) fn parse(&mut self) -> Result<YamlNode<'g>, String> {
+        self.skip_whitespace_and_newlines();
+        let result = self.parse_value(0)?;
+        Ok(result)
+    }
+
+    fn current_token(&self) -> Option<&Token<'g>> {
+        self.tokens.get(self.current)
+    }
+
+    fn advance(&mut self) -> Option<&Token<'g>> {
+        if self.current < self.tokens.len() {
+            let token = &self.tokens[self.current];
+            self.current += 1;
+            Some(token)
+        } else {
+            None
+        }
+    }
+
+    fn skip_whitespace(&mut self) {
+        while let Some(token) = self.current_token() {
+            if token.kind != TokenKind::Whitespace {
+                break;
+            }
+            self.advance();
+        }
+    }
+
+    fn skip_whitespace_and_newlines(&mut self) {
+        while let Some(token) = self.current_token() {
+            match token.kind {
+                TokenKind::Whitespace
+                | TokenKind::NewLine
+                | TokenKind::Indent
+                | TokenKind::Dedent => {
+                    self.advance();
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Hyphen
+                | TokenKind::Comment
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => break,
+            }
+        }
+    }
+
+    fn collect_comment(&mut self) -> Option<Cow<'g, str>> {
+        self.skip_whitespace();
+        if let Some(token) = self.current_token()
+            && token.kind == TokenKind::Comment
+        {
+            let comment = token.text.trim_start_matches('#').trim();
+            self.advance();
+            return Some(Cow::Borrowed(comment));
+        }
+        None
+    }
+
+    fn parse_value(&mut self, min_indent: usize) -> Result<YamlNode<'g>, String> {
+        self.skip_whitespace();
+
+        // Collect leading comment if it's on a line by itself
+        let mut leading_comment: Option<Cow<'g, str>> = None;
+        if let Some(token) = self.current_token()
+            && token.kind == TokenKind::Comment
+        {
+            leading_comment = Some(Cow::Borrowed(token.text.trim_start_matches('#').trim()));
+            self.advance();
+            self.skip_whitespace_and_newlines();
+        }
+
+        let token = self
+            .current_token()
+            .ok_or_else(|| "Unexpected end of input".to_string())?;
+
+        let node = match token.kind {
+            TokenKind::Hyphen => {
+                let value = self.parse_array(min_indent)?;
+                YamlNode::new(value)
+            }
+            TokenKind::Identifier => {
+                let text = token.text;
+                self.advance();
+
+                self.skip_whitespace();
+                if let Some(next) = self.current_token()
+                    && next.kind == TokenKind::Colon
+                {
+                    self.current -= 1; // Back up
+                    return self.parse_object(min_indent);
+                }
+
+                // It's a scalar value - always treat as string
+                YamlNode::new(YamlValue::String(Cow::Borrowed(text)))
+            }
+            TokenKind::String => {
+                let text = token.text;
+                let content = if text.starts_with('"') || text.starts_with('\'') {
+                    &text[1..text.len() - 1]
+                } else {
+                    text
+                };
+                self.advance();
+                YamlNode::new(YamlValue::String(Cow::Borrowed(content)))
+            }
+            TokenKind::Whitespace
+            | TokenKind::NewLine
+            | TokenKind::Colon
+            | TokenKind::Comment
+            | TokenKind::Indent
+            | TokenKind::Dedent
+            | TokenKind::Pipe
+            | TokenKind::GreaterThan => {
+                return Err(format!("Unexpected token: {:?}", token.kind));
+            }
+        };
+
+        let inline_comment = self.collect_comment();
+
+        Ok(YamlNode::with_comments(
+            node.value,
+            leading_comment,
+            inline_comment,
+        ))
+    }
+
+    fn parse_inline_value(&mut self) -> Result<YamlNode<'g>, String> {
+        // Collect tokens until we hit a newline or comment
+        let start_token = self
+            .current_token()
+            .ok_or_else(|| "Expected value".to_string())?;
+
+        // Check for special single-token values first
+        match start_token.kind {
+            TokenKind::String => {
+                let text = start_token.text;
+                let content = if text.starts_with('"') || text.starts_with('\'') {
+                    &text[1..text.len() - 1]
+                } else {
+                    text
+                };
+                self.advance();
+                let inline_comment = self.collect_comment();
+                return Ok(YamlNode::with_comments(
+                    YamlValue::String(Cow::Borrowed(content)),
+                    None,
+                    inline_comment,
+                ));
+            }
+            TokenKind::Identifier
+            | TokenKind::Colon
+            | TokenKind::Whitespace
+            | TokenKind::NewLine
+            | TokenKind::Hyphen
+            | TokenKind::Comment
+            | TokenKind::Indent
+            | TokenKind::Dedent
+            | TokenKind::Pipe
+            | TokenKind::GreaterThan => {}
+        }
+
+        // Otherwise collect all tokens until newline or comment
+        let mut value_parts = Vec::with_capacity(4); // Most values are 1-4 tokens
+        let mut single_token_text: Option<&'g str> = None;
+
+        while let Some(token) = self.current_token() {
+            match token.kind {
+                TokenKind::NewLine | TokenKind::Comment => break,
+                TokenKind::Whitespace => {
+                    value_parts.push(" ");
+                    self.advance();
+                }
+                TokenKind::Identifier
+                | TokenKind::Colon
+                | TokenKind::String
+                | TokenKind::Hyphen
+                | TokenKind::Indent
+                | TokenKind::Dedent
+                | TokenKind::Pipe
+                | TokenKind::GreaterThan => {
+                    if value_parts.is_empty() && single_token_text.is_none() {
+                        single_token_text = Some(token.text);
+                    }
+                    value_parts.push(token.text);
+                    self.advance();
+                }
+            }
+        }
+
+        // Trim trailing whitespace from value_parts
+        while value_parts.last() == Some(&" ") {
+            value_parts.pop();
+        }
+
+        // Everything is a string now
+        let value = if let Some(text) = single_token_text.filter(|_| value_parts.len() == 1) {
+            YamlValue::String(Cow::Borrowed(text))
+        } else {
+            // For multi-token values, join them
+            let value_str = value_parts.join("");
+            YamlValue::String(Cow::Owned(value_str))
+        };
+
+        let inline_comment = self.collect_comment();
+
+        Ok(YamlNode::with_comments(value, None, inline_comment))
+    }
+
+    fn parse_array(&mut self, min_indent: usize) -> Result<YamlValue<'g>, String> {
+        let mut items = Vec::new();
+
+        while let Some(token) = self.current_token() {
+            if token.kind == TokenKind::Hyphen {
+                self.advance(); // consume hyphen
+                self.skip_whitespace();
+
+                let item = self.parse_value(min_indent)?;
+                items.push(item);
+
+                self.skip_whitespace();
+                if let Some(token) = self.current_token() {
+                    if token.kind == TokenKind::NewLine {
+                        self.advance();
+                        self.skip_whitespace_and_newlines();
+                    } else if token.kind != TokenKind::Hyphen {
+                        break;
+                    }
+                }
+            } else {
+                break;
+            }
+        }
+
+        Ok(YamlValue::Array(items))
+    }
+
+    fn parse_multiline_string(&mut self, base_indent: usize, is_literal: bool) -> Result<YamlNode<'g>, String> {
+        // Skip any remaining whitespace and comments on the same line
+        self.skip_whitespace();
+
+        // Handle optional chomping indicator (-, +, or none)
+        let mut chomp_mode = ChompMode::Clip; // default
+        if let Some(token) = self.current_token() {
+            match token.text {
+                "-" => {
+                    chomp_mode = ChompMode::Strip;
+                    self.advance();
+                }
+                "+" => {
+                    chomp_mode = ChompMode::Keep;
+                    self.advance();
+                }
+                _ => {}
+            }
+        }
+
+        // Skip to next line
+        while let Some(token) = self.current_token() {
+            if token.kind == TokenKind::NewLine {
+                self.advance();
+                break;
+            }
+            // Skip any other tokens (comments, etc.)
+            self.advance();
+        }
+
+        let mut lines = Vec::new();
+        let mut content_indent = None;
+
+        // Collect all lines that are more indented than base_indent
+        while let Some(token) = self.current_token() {
+            // Check if we've dedented back to or past the base level
+            if token.kind == TokenKind::Dedent {
+                // Check the next non-whitespace token's column
+                let mut peek_index = self.current + 1;
+                while peek_index < self.tokens.len() {
+                    let peek_token = &self.tokens[peek_index];
+                    if peek_token.kind != TokenKind::Whitespace && peek_token.kind != TokenKind::Indent && peek_token.kind != TokenKind::Dedent {
+                        if peek_token.column <= base_indent {
+                            break;
+                        }
+                        break;
+                    }
+                    peek_index += 1;
+                }
+                if peek_index < self.tokens.len() && self.tokens[peek_index].column <= base_indent {
+                    break;
+                }
+            }
+
+            // Skip whitespace but track indentation
+            if token.kind == TokenKind::Whitespace || token.kind == TokenKind::Indent {
+                self.advance();
+                continue;
+            }
+
+            // If it's a newline, add an empty line
+            if token.kind == TokenKind::NewLine {
+                lines.push("");
+                self.advance();
+                continue;
+            }
+
+            // Check indentation
+            if token.column <= base_indent {
+                break;
+            }
+
+            // Set content indent from first content line
+            if content_indent.is_none() {
+                content_indent = Some(token.column);
+            }
+
+            // Collect the line
+            let _line_start = self.current;
+            let mut line_text = String::new();
+
+            while let Some(token) = self.current_token() {
+                if token.kind == TokenKind::NewLine {
+                    break;
+                }
+
+                // For literal mode, preserve everything
+                // For folded mode, we'll process later
+                line_text.push_str(token.text);
+                self.advance();
+            }
+
+            lines.push(line_text.leak()); // Convert to &'static str for simplicity
+
+            if let Some(token) = self.current_token()
+                && token.kind == TokenKind::NewLine {
+                self.advance();
+            }
+        }
+
+        // Process the lines based on mode
+        let result = if is_literal {
+            // Literal mode: preserve line breaks
+            let mut result = lines.join("\n");
+
+            // Apply chomping
+            match chomp_mode {
+                ChompMode::Strip => {
+                    // Remove all trailing newlines
+                    while result.ends_with('\n') {
+                        result.pop();
+                    }
+                }
+                ChompMode::Clip => {
+                    // Keep single trailing newline (default)
+                    while result.ends_with("\n\n") {
+                        result.pop();
+                    }
+                    if !result.ends_with('\n') && !result.is_empty() {
+                        result.push('\n');
+                    }
+                }
+                ChompMode::Keep => {
+                    // Keep all trailing newlines
+                    result.push('\n');
+                }
+            }
+
+            result
+        } else {
+            // Folded mode: fold lines together
+            let mut result = String::new();
+            let mut prev_empty = false;
+
+            for (i, line) in lines.iter().enumerate() {
+                if line.is_empty() {
+                    if !prev_empty && i > 0 {
+                        result.push('\n');
+                    }
+                    prev_empty = true;
+                } else {
+                    if i > 0 && !prev_empty {
+                        result.push(' ');
+                    }
+                    result.push_str(line.trim_start());
+                    prev_empty = false;
+                }
+            }
+
+            // Apply chomping
+            match chomp_mode {
+                ChompMode::Strip => {
+                    while result.ends_with('\n') || result.ends_with(' ') {
+                        result.pop();
+                    }
+                }
+                ChompMode::Clip => {
+                    while result.ends_with('\n') || result.ends_with(' ') {
+                        result.pop();
+                    }
+                    // Add single trailing newline for Clip mode
+                    if !result.is_empty() {
+                        result.push('\n');
+                    }
+                }
+                ChompMode::Keep => {
+                    // Keep trailing whitespace
+                    if !result.is_empty() && !result.ends_with('\n') {
+                        result.push('\n');
+                    }
+                }
+            }
+
+            result
+        };
+
+        Ok(YamlNode::new(YamlValue::String(Cow::Owned(result))))
+    }
+
+    fn parse_object(&mut self, min_indent: usize) -> Result<YamlNode<'g>, String> {
+        let mut map = BTreeMap::new();
+
+        while let Some(token) = self.current_token() {
+            if token.kind != TokenKind::Identifier {
+                break;
+            }
+
+            // Check if this key is at the right indentation level
+            // If we're in a nested object, keys should be more indented than min_indent
+            if min_indent > 0 && token.column <= min_indent {
+                break;
+            }
+
+            let key_column = token.column;
+            let key = Cow::Borrowed(token.text);
+            self.advance();
+
+            self.skip_whitespace();
+
+            // Early return if no colon found
+            let Some(token) = self.current_token() else {
+                return Err("Expected colon after key".to_string());
+            };
+            if token.kind != TokenKind::Colon {
+                return Err(format!("Expected colon after key, got {:?}", token.kind));
+            }
+            self.advance();
+
+            self.skip_whitespace();
+
+            // Skip whitespace after colon
+            self.skip_whitespace();
+
+            // Collect the value - could be multiple tokens on the same line
+            let Some(token) = self.current_token() else {
+                return Err("Expected value after colon".to_string());
+            };
+
+            let value = if token.kind == TokenKind::Pipe || token.kind == TokenKind::GreaterThan {
+                // Multiline string indicator
+                let is_literal = token.kind == TokenKind::Pipe;
+                self.advance(); // consume | or >
+                self.parse_multiline_string(key_column, is_literal)?
+            } else if token.kind == TokenKind::NewLine || token.kind == TokenKind::Indent {
+                // Value is on next line
+                self.skip_whitespace_and_newlines();
+                // Use key_column as the new min_indent for nested values
+                self.parse_value(key_column)?
+            } else {
+                // Value is on same line - collect until newline
+                self.parse_inline_value()?
+            };
+
+            map.insert(key, value);
+
+            self.skip_whitespace();
+            if let Some(token) = self.current_token()
+                && token.kind == TokenKind::NewLine
+            {
+                self.advance();
+                self.skip_whitespace_and_newlines();
+            }
+
+            // Check if we've dedented or reached end
+            if let Some(token) = self.current_token()
+                && token.kind == TokenKind::Dedent
+            {
+                self.advance();
+                break;
+            }
+        }
+
+        Ok(YamlNode::new(YamlValue::Object(map)))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_simple_object() {
+        let yaml = "name: John\nage: 30";
+        let mut parser = Parser::new(yaml);
+        let result = parser.parse().unwrap();
+
+        if let YamlValue::Object(map) = &result.value {
+            assert_eq!(map.len(), 2);
+
+            let name_node = map.get(&Cow::Borrowed("name")).unwrap();
+            assert_eq!(name_node.value, YamlValue::String(Cow::Borrowed("John")));
+
+            let age_node = map.get(&Cow::Borrowed("age")).unwrap();
+            assert_eq!(age_node.value, YamlValue::String(Cow::Borrowed("30")));
+        } else {
+            panic!("Expected object");
+        }
+    }
+
+    #[test]
+    fn test_parse_array() {
+        let yaml = "- apple\n- banana\n- cherry";
+        let mut parser = Parser::new(yaml);
+        let result = parser.parse().unwrap();
+
+        if let YamlValue::Array(items) = &result.value {
+            assert_eq!(items.len(), 3);
+            assert_eq!(items[0].value, YamlValue::String(Cow::Borrowed("apple")));
+            assert_eq!(items[1].value, YamlValue::String(Cow::Borrowed("banana")));
+            assert_eq!(items[2].value, YamlValue::String(Cow::Borrowed("cherry")));
+        } else {
+            panic!("Expected array");
+        }
+    }
+
+    #[test]
+    fn test_parse_with_comments() {
+        let yaml = "name: John # inline comment\nage: 30";
+        let mut parser = Parser::new(yaml);
+        let result = parser.parse().unwrap();
+
+        if let YamlValue::Object(map) = &result.value {
+            let name_node = map.get(&Cow::Borrowed("name")).unwrap();
+            assert_eq!(
+                name_node.inline_comment,
+                Some(Cow::Borrowed("inline comment"))
+            );
+        } else {
+            panic!("Expected object");
+        }
+    }
+
+    #[test]
+    fn test_parse_mixed_types() {
+        let yaml = "enabled: true\ncount: 42\nratio: 2.5\nempty: null";
+        let mut parser = Parser::new(yaml);
+        let result = parser.parse().unwrap();
+
+        if let YamlValue::Object(map) = &result.value {
+            assert_eq!(
+                map.get(&Cow::Borrowed("enabled")).unwrap().value,
+                YamlValue::String(Cow::Borrowed("true"))
+            );
+            assert_eq!(
+                map.get(&Cow::Borrowed("count")).unwrap().value,
+                YamlValue::String(Cow::Borrowed("42"))
+            );
+            assert_eq!(
+                map.get(&Cow::Borrowed("ratio")).unwrap().value,
+                YamlValue::String(Cow::Borrowed("2.5"))
+            );
+            assert_eq!(
+                map.get(&Cow::Borrowed("empty")).unwrap().value,
+                YamlValue::String(Cow::Borrowed("null"))
+            );
+        } else {
+            panic!("Expected object");
+        }
+    }
+}

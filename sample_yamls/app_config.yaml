@@ -1,0 +1,43 @@
+app:
+  name: MyWebApp
+  version: 1.0.0
+  debug: false
+  port: 3000
+
+database:
+  driver: postgresql
+  host: localhost
+  port: 5432
+  name: myapp_prod
+  pool_size: 10
+  timeout: 30
+
+cache:
+  provider: redis
+  host: localhost
+  port: 6379
+  ttl: 3600
+
+logging:
+  level: info
+  format: json
+  outputs:
+    - console
+    - file
+  file:
+    path: /var/log/app.log
+    max_size: 100MB
+    max_files: 5
+
+security:
+  jwt:
+    secret: your-secret-key
+    expiry: 24h
+  cors:
+    enabled: true
+    origins:
+      - https://example.com
+      - https://app.example.com
+  rate_limit:
+    requests_per_minute: 100
+    burst: 200

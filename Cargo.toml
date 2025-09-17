@@ -1,7 +1,14 @@
 [package]
-name    = "yamp"
-version = "0.1.0"
-edition = "2024"
+name        = "yamp"
+version     = "0.1.0"
+edition     = "2024"
+authors     = ["sanjeevprasad"]
+description = "Yet Another Minimal Parser - A safe, predictable YAML parser that treats all values as strings"
+readme      = "README.md"
+license     = "MIT"
+repository  = "https://github.com/sanjeevprasad/yamp"
+keywords    = ["yaml", "parser", "safe", "string-only", "predictable"]
+categories  = ["parser-implementations", "config"]
 
 [dependencies]
 

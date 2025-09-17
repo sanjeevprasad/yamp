@@ -1,0 +1,14 @@
+# Application configuration
+app_name: MyApp # The application name
+version: 1.2.3
+
+# Database settings
+database:
+  host: localhost # Default host
+  port: 5432
+
+# Feature flags
+features:
+  - logging # Enable logging
+  - caching # Enable caching
+  - monitoring

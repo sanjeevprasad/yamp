@@ -1,0 +1,56 @@
+---
+- name: Deploy web application
+  hosts: webservers
+  become: yes
+  vars:
+    app_name: mywebapp
+    app_port: 8080
+    app_user: webapp
+
+  tasks:
+    - name: Install required packages
+      package:
+        name:
+          - nginx
+          - nodejs
+          - npm
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        shell: /bin/bash
+        home: "/home/{{ app_user }}"
+        create_home: yes
+
+    - name: Copy application files
+      copy:
+        src: ./app/
+        dest: "/opt/{{ app_name }}/"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Install npm dependencies
+      npm:
+        path: "/opt/{{ app_name }}"
+        state: present
+
+    - name: Configure nginx
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/sites-available/{{ app_name }}
+      notify:
+        - restart nginx
+
+    - name: Enable nginx site
+      file:
+        src: /etc/nginx/sites-available/{{ app_name }}
+        dest: /etc/nginx/sites-enabled/{{ app_name }}
+        state: link
+
+  handlers:
+    - name: restart nginx
+      service:
+        name: nginx
+        state: restarted

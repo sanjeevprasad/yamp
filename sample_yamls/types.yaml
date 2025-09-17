@@ -1,0 +1,13 @@
+string_value: hello world
+integer_positive: 42
+integer_negative: -17
+float_positive: 3.14159
+float_negative: -2.5
+boolean_true: true
+boolean_false: false
+string_yes: yes
+string_no: no
+string_on: on
+string_off: off
+null_value: null
+null_tilde: null

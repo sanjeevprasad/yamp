@@ -1,0 +1,36 @@
+application: MyWebApp # Application identifier
+custom_config: null
+database:
+  credentials:
+    password: "${DB_PASSWORD}"
+    username: admin
+  host: localhost
+  name: myapp_production
+  pool:
+    max_connections: 20
+    min_connections: 5
+    timeout: 30.5
+  port: 5432
+environment: production
+features:
+  - enabled: false
+    name: new_dashboard
+  - enabled: true
+    name: beta_api
+    rollout_percentage: 25
+logging:
+  format: json
+  level: info
+  outputs:
+    - stdout
+    - /var/log/app.log
+server:
+  host: 0.0.0.0
+  https_enabled: true
+  middleware:
+    - cors
+    - authentication
+    - rate_limiting
+    - compression
+  port: 8080
+version: 2.1.0
