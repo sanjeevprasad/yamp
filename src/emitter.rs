@@ -40,16 +40,25 @@ impl Emitter {
 
     fn write_comment(&mut self, comment: &str, inline: bool) {
         if inline {
-            write!(&mut self.output, " # {}", comment).unwrap();
+            // Inline comments should be single line only
+            let single_line = comment.lines().next().unwrap_or("");
+            write!(&mut self.output, " # {}", single_line).unwrap();
         } else {
-            self.write_indent();
-            writeln!(&mut self.output, "# {}", comment).unwrap();
+            // Leading comments can be multiline - each line gets its own # prefix
+            for line in comment.lines() {
+                self.write_indent();
+                writeln!(&mut self.output, "# {}", line).unwrap();
+            }
         }
     }
 
     fn emit_node(&mut self, node: &YamlNode, inline: bool) {
-        // Write leading comment if present
-        if !inline {
+        self.emit_node_with_comment_control(node, inline, true);
+    }
+
+    fn emit_node_with_comment_control(&mut self, node: &YamlNode, inline: bool, emit_leading_comment: bool) {
+        // Write leading comment if present and requested
+        if !inline && emit_leading_comment {
             if let Some(ref comment) = node.leading_comment {
                 self.write_comment(comment, false);
             }
@@ -222,10 +231,17 @@ impl Emitter {
         for (key, value) in map.iter() {
             if !first {
                 self.output.push('\n');
-                self.write_indent();
             } else {
                 first = false;
             }
+
+            // Write leading comment for this key-value pair if present
+            if let Some(ref comment) = value.leading_comment {
+                self.write_comment(comment, false);
+            }
+
+            // Always write indent for the key (comment function handles its own indentation)
+            self.write_indent();
 
             // Write key
             if needs_quoting(key.as_ref()) {
@@ -247,8 +263,8 @@ impl Emitter {
                     self.output.push('\n');
                     let old_indent = self.current_indent;
                     self.current_indent += self.indent_size;
-                    self.write_indent();
-                    self.emit_node(value, false);
+                    // Don't emit leading comment again - it was already emitted above
+                    self.emit_node_with_comment_control(value, false, false);
                     self.current_indent = old_indent;
                 }
                 YamlValue::String(s) => {

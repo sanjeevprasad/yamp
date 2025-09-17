@@ -122,8 +122,72 @@ impl<'g> Parser<'g> {
         Parser { tokens, current: 0 }
     }
 
+    fn collect_consecutive_comments(&mut self) -> Option<String> {
+        // Collect all comments before any non-comment content, being flexible about indentation
+        let mut leading_comments: Vec<String> = Vec::new();
+
+
+        // Look for consecutive comment lines, respecting blank lines
+        while let Some(token) = self.current_token() {
+            if token.kind != TokenKind::Comment {
+                break;
+            }
+
+            leading_comments.push(token.text.trim_start_matches('#').trim().to_string());
+            self.advance();
+
+            // Skip all whitespace/indentation until we find the next meaningful token
+            let mut found_blank_line = false;
+            let mut consecutive_newlines = 0;
+
+            while let Some(next_token) = self.current_token() {
+                match next_token.kind {
+                    TokenKind::Whitespace | TokenKind::Indent | TokenKind::Dedent => {
+                        // Skip all whitespace and indentation tokens - be flexible
+                        self.advance();
+                        continue;
+                    }
+                    TokenKind::NewLine => {
+                        consecutive_newlines += 1;
+                        if consecutive_newlines >= 2 {
+                            found_blank_line = true;
+                            // Advance past all newlines
+                            self.advance();
+                            while let Some(t) = self.current_token() {
+                                if t.kind != TokenKind::NewLine {
+                                    break;
+                                }
+                                self.advance();
+                            }
+                            break;
+                        }
+                        self.advance();
+                    }
+                    TokenKind::Identifier
+                    | TokenKind::Colon
+                    | TokenKind::String
+                    | TokenKind::Hyphen
+                    | TokenKind::Comment
+                    | TokenKind::Pipe
+                    | TokenKind::GreaterThan => break,
+                }
+            }
+
+            // If we found a blank line, clear previous comments and continue
+            if found_blank_line {
+                leading_comments.clear();
+            }
+        }
+
+        if leading_comments.is_empty() {
+            None
+        } else {
+            Some(leading_comments.join("\n"))
+        }
+    }
+
     pub(crate) fn parse(&mut self) -> Result<YamlNode, String> {
-        self.skip_whitespace_and_newlines();
+        // Don't skip comments at the root level - parse_value will handle them
         let result = self.parse_value(0)?;
         Ok(result)
     }
@@ -159,6 +223,7 @@ impl<'g> Parser<'g> {
                 | TokenKind::Indent
                 | TokenKind::Dedent => {
                     self.advance();
+                    continue;
                 }
                 TokenKind::Identifier
                 | TokenKind::Colon
@@ -183,17 +248,22 @@ impl<'g> Parser<'g> {
     }
 
     fn parse_value(&mut self, min_indent: usize) -> Result<YamlNode, String> {
+        // Skip only whitespace initially, not comments
         self.skip_whitespace();
 
-        // Collect leading comment if it's on a line by itself
-        let mut leading_comment: Option<String> = None;
-        if let Some(token) = self.current_token() {
-            if token.kind == TokenKind::Comment {
-                leading_comment = Some(token.text.trim_start_matches('#').trim().to_string());
-                self.advance();
-                self.skip_whitespace_and_newlines();
+        // Skip newlines but stop at comments
+        while let Some(token) = self.current_token() {
+            if token.kind != TokenKind::NewLine
+                && token.kind != TokenKind::Indent
+                && token.kind != TokenKind::Dedent
+            {
+                break;
             }
+            self.advance();
         }
+
+        // Collect leading comment(s) - preserve only consecutive comments (no blank lines)
+        let mut leading_comment = self.collect_consecutive_comments();
 
         let token = self
             .current_token()
@@ -201,7 +271,9 @@ impl<'g> Parser<'g> {
 
         let node = match token.kind {
             TokenKind::Hyphen => {
-                let value = self.parse_array(min_indent)?;
+                // Pass the leading comment to parse_array for the first item
+                // Take ownership of the comment to avoid cloning
+                let value = self.parse_array(min_indent, leading_comment.take())?;
                 YamlNode::new(value)
             }
             TokenKind::Identifier => {
@@ -212,7 +284,9 @@ impl<'g> Parser<'g> {
                 if let Some(next) = self.current_token() {
                     if next.kind == TokenKind::Colon {
                         self.current -= 1; // Back up
-                        return self.parse_object(min_indent);
+                                           // Pass the leading comment to parse_object for the first key
+                        let obj_node = self.parse_object(min_indent, leading_comment)?;
+                        return Ok(obj_node);
                     }
                 }
 
@@ -232,12 +306,15 @@ impl<'g> Parser<'g> {
             TokenKind::Whitespace
             | TokenKind::NewLine
             | TokenKind::Colon
-            | TokenKind::Comment
             | TokenKind::Indent
             | TokenKind::Dedent
             | TokenKind::Pipe
             | TokenKind::GreaterThan => {
                 return Err(format!("Unexpected token: {:?}", token.kind));
+            }
+            TokenKind::Comment => {
+                // This shouldn't happen as we handle comments above
+                return Err("Unexpected comment token".to_string());
             }
         };
 
@@ -332,27 +409,57 @@ impl<'g> Parser<'g> {
         Ok(YamlNode::with_comments(value, None, inline_comment))
     }
 
-    fn parse_array(&mut self, min_indent: usize) -> Result<YamlValue, String> {
+    fn parse_array(
+        &mut self,
+        min_indent: usize,
+        mut initial_leading_comment: Option<String>,
+    ) -> Result<YamlValue, String> {
         let mut items = Vec::new();
+        let mut first_item = true;
 
-        while let Some(token) = self.current_token() {
-            if token.kind == TokenKind::Hyphen {
-                self.advance(); // consume hyphen
-                self.skip_whitespace();
+        while let Some(_token) = self.current_token() {
+            // Handle any leading comments before the array item
+            let leading_comment: Option<String>;
 
-                let item = self.parse_value(min_indent)?;
-                items.push(item);
-
-                self.skip_whitespace();
-                if let Some(token) = self.current_token() {
-                    if token.kind == TokenKind::NewLine {
-                        self.advance();
-                        self.skip_whitespace_and_newlines();
-                    } else if token.kind != TokenKind::Hyphen {
-                        break;
-                    }
-                }
+            // Use initial comment for first item if provided
+            if first_item {
+                leading_comment = initial_leading_comment.take();
+                first_item = false;
             } else {
+                first_item = false;
+                leading_comment = self.collect_consecutive_comments();
+            }
+
+            // After handling comments, check if we have a hyphen
+            let Some(token) = self.current_token() else {
+                break;
+            };
+            if token.kind != TokenKind::Hyphen {
+                break;
+            }
+
+            self.advance(); // consume hyphen
+            self.skip_whitespace();
+
+            let mut item = self.parse_value(min_indent)?;
+
+            // Apply leading comment to the item if we collected one
+            // The comment before the hyphen takes precedence
+            if leading_comment.is_some() {
+                item.leading_comment = leading_comment;
+            }
+
+            items.push(item);
+
+            self.skip_whitespace();
+            let Some(token) = self.current_token() else {
+                break;
+            };
+
+            if token.kind == TokenKind::NewLine {
+                self.advance();
+                self.skip_whitespace_and_newlines();
+            } else if token.kind != TokenKind::Hyphen {
                 break;
             }
         }
@@ -380,7 +487,7 @@ impl<'g> Parser<'g> {
                     chomp_mode = ChompMode::Keep;
                     self.advance();
                 }
-                _other => {}
+                _ => {}
             }
         }
 
@@ -409,9 +516,6 @@ impl<'g> Parser<'g> {
                         && peek_token.kind != TokenKind::Indent
                         && peek_token.kind != TokenKind::Dedent
                     {
-                        if peek_token.column <= base_indent {
-                            break;
-                        }
                         break;
                     }
                     peek_index += 1;
@@ -551,13 +655,42 @@ impl<'g> Parser<'g> {
         Ok(YamlNode::new(YamlValue::String(result)))
     }
 
-    fn parse_object(&mut self, min_indent: usize) -> Result<YamlNode, String> {
+    fn parse_object(
+        &mut self,
+        min_indent: usize,
+        mut initial_leading_comment: Option<String>,
+    ) -> Result<YamlNode, String> {
         let mut map = BTreeMap::new();
+        let mut first_key = true;
 
-        while let Some(token) = self.current_token() {
+        while let Some(_token) = self.current_token() {
+            // Handle any leading comments before the key - always collect consistently
+            let mut leading_comment = self.collect_consecutive_comments();
+
+            // Debug: show what we found
+            if let Some(token) = self.current_token() {
+                if token.kind == TokenKind::Identifier {
+                    eprintln!("DEBUG parse_object: key '{}' collected comment: {:?}", token.text, leading_comment);
+                }
+            }
+
+            // For the first key, prefer the initial comment if provided and no comment was collected
+            if first_key {
+                if leading_comment.is_none() && initial_leading_comment.is_some() {
+                    leading_comment = initial_leading_comment.take();
+                }
+                first_key = false;
+            }
+
+            // After handling comments, check if we have a key
+            let Some(token) = self.current_token() else {
+                break;
+            };
             if token.kind != TokenKind::Identifier {
                 break;
             }
+
+            let token = self.current_token().unwrap(); // Safe because we just checked
 
             // Check if this key is at the right indentation level
             // If we're in a nested object, keys should be more indented than min_indent
@@ -590,7 +723,8 @@ impl<'g> Parser<'g> {
                 return Err("Expected value after colon".to_string());
             };
 
-            let value = if token.kind == TokenKind::Pipe || token.kind == TokenKind::GreaterThan {
+            let mut value = if token.kind == TokenKind::Pipe || token.kind == TokenKind::GreaterThan
+            {
                 // Multiline string indicator
                 let is_literal = token.kind == TokenKind::Pipe;
                 self.advance(); // consume | or >
@@ -605,6 +739,12 @@ impl<'g> Parser<'g> {
                 self.parse_inline_value()?
             };
 
+            // Apply leading comment to the value node if we collected one
+            // The comment before the key takes precedence over any comment in the value
+            if leading_comment.is_some() {
+                value.leading_comment = leading_comment;
+            }
+
             map.insert(key, value);
 
             self.skip_whitespace();
@@ -616,11 +756,12 @@ impl<'g> Parser<'g> {
             }
 
             // Check if we've dedented or reached end
-            if let Some(token) = self.current_token() {
-                if token.kind == TokenKind::Dedent {
-                    self.advance();
-                    break;
-                }
+            let Some(token) = self.current_token() else {
+                break;
+            };
+            if token.kind == TokenKind::Dedent {
+                self.advance();
+                break;
             }
         }
 

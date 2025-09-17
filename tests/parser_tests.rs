@@ -137,17 +137,19 @@ string6: off
 
     let result = parse(yaml).expect("Failed to parse boolean variants");
 
-    if let YamlValue::Object(map) = &result.value {
-        // All boolean values are now strings
-        assert_eq!(map.get("bool1").and_then(|n| n.as_str()), Some("true"));
-        assert_eq!(map.get("bool2").and_then(|n| n.as_str()), Some("false"));
+    let YamlValue::Object(map) = &result.value else {
+        panic!("Expected object, got {:?}", result.value);
+    };
 
-        // yes/no/on/off should be strings
-        assert_eq!(map.get("string3").and_then(|n| n.as_str()), Some("yes"));
-        assert_eq!(map.get("string4").and_then(|n| n.as_str()), Some("no"));
-        assert_eq!(map.get("string5").and_then(|n| n.as_str()), Some("on"));
-        assert_eq!(map.get("string6").and_then(|n| n.as_str()), Some("off"));
-    }
+    // All boolean values are now strings
+    assert_eq!(map.get("bool1").and_then(|n| n.as_str()), Some("true"));
+    assert_eq!(map.get("bool2").and_then(|n| n.as_str()), Some("false"));
+
+    // yes/no/on/off should be strings
+    assert_eq!(map.get("string3").and_then(|n| n.as_str()), Some("yes"));
+    assert_eq!(map.get("string4").and_then(|n| n.as_str()), Some("no"));
+    assert_eq!(map.get("string5").and_then(|n| n.as_str()), Some("on"));
+    assert_eq!(map.get("string6").and_then(|n| n.as_str()), Some("off"));
 }
 
 #[test]
