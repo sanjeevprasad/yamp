@@ -60,23 +60,23 @@ fn test_roundtrip_boolean_strings() {
     let reparsed = parse(&emitted).expect("Failed to reparse");
 
     // Verify the roundtrip preserves values - all are strings now
-    if let YamlValue::Object(original_map) = &parsed.value
-        && let YamlValue::Object(reparsed_map) = &reparsed.value
-    {
-        // yes should remain a string
-        assert!(
-            matches!(original_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
-        );
-        assert!(
-            matches!(reparsed_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
-        );
+    if let YamlValue::Object(original_map) = &parsed.value {
+        if let YamlValue::Object(reparsed_map) = &reparsed.value {
+            // yes should remain a string
+            assert!(
+                matches!(original_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
+            );
+            assert!(
+                matches!(reparsed_map.get(&Cow::Borrowed("bool_string")).unwrap().value, YamlValue::String(ref s) if s == "yes")
+            );
 
-        // true is now also a string
-        assert!(
-            matches!(original_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
-        );
-        assert!(
-            matches!(reparsed_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
-        );
+            // true is now also a string
+            assert!(
+                matches!(original_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
+            );
+            assert!(
+                matches!(reparsed_map.get(&Cow::Borrowed("true_bool")).unwrap().value, YamlValue::String(ref s) if s == "true")
+            );
+        }
     }
 }

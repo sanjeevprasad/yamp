@@ -1,5 +1,10 @@
 # YAMP - Yet Another Minimal Parser
 
+[![CI](https://github.com/sanjeevprasad/yamp/actions/workflows/ci.yml/badge.svg)](https://github.com/sanjeevprasad/yamp/actions/workflows/ci.yml)
+[![Crates.io](https://img.shields.io/crates/v/yamp.svg)](https://crates.io/crates/yamp)
+[![Documentation](https://docs.rs/yamp/badge.svg)](https://docs.rs/yamp)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A lightweight, efficient YAML parser written in Rust that prioritizes comment preservation, simplicity, and avoiding common YAML pitfalls.
 
 ## Philosophy

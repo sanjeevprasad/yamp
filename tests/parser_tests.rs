@@ -78,18 +78,19 @@ database:
 
     let result = parse(yaml).expect("Failed to parse nested objects");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(db_node) = map.get(&Cow::Borrowed("database"))
-        && let YamlValue::Object(db_map) = &db_node.value
-    {
-        assert!(db_map.contains_key(&Cow::Borrowed("host")));
-        assert!(db_map.contains_key(&Cow::Borrowed("port")));
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(db_node) = map.get(&Cow::Borrowed("database")) {
+            if let YamlValue::Object(db_map) = &db_node.value {
+                assert!(db_map.contains_key(&Cow::Borrowed("host")));
+                assert!(db_map.contains_key(&Cow::Borrowed("port")));
 
-        if let Some(creds_node) = db_map.get(&Cow::Borrowed("credentials"))
-            && let YamlValue::Object(creds_map) = &creds_node.value
-        {
-            assert!(creds_map.contains_key(&Cow::Borrowed("username")));
-            assert!(creds_map.contains_key(&Cow::Borrowed("password")));
+                if let Some(creds_node) = db_map.get(&Cow::Borrowed("credentials")) {
+                    if let YamlValue::Object(creds_map) = &creds_node.value {
+                        assert!(creds_map.contains_key(&Cow::Borrowed("username")));
+                        assert!(creds_map.contains_key(&Cow::Borrowed("password")));
+                    }
+                }
+            }
         }
     }
 }
@@ -106,29 +107,30 @@ users:
 
     let result = parse(yaml).expect("Failed to parse array of objects");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(users_node) = map.get(&Cow::Borrowed("users"))
-        && let YamlValue::Array(users) = &users_node.value
-    {
-        assert_eq!(users.len(), 2);
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(users_node) = map.get(&Cow::Borrowed("users")) {
+            if let YamlValue::Array(users) = &users_node.value {
+                assert_eq!(users.len(), 2);
 
-        // Check first user
-        if let YamlValue::Object(user1) = &users[0].value {
-            if let Some(name_node) = user1.get(&Cow::Borrowed("name")) {
-                assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Alice"));
-            }
-            if let Some(age_node) = user1.get(&Cow::Borrowed("age")) {
-                assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "30"));
-            }
-        }
+                // Check first user
+                if let YamlValue::Object(user1) = &users[0].value {
+                    if let Some(name_node) = user1.get(&Cow::Borrowed("name")) {
+                        assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Alice"));
+                    }
+                    if let Some(age_node) = user1.get(&Cow::Borrowed("age")) {
+                        assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "30"));
+                    }
+                }
 
-        // Check second user
-        if let YamlValue::Object(user2) = &users[1].value {
-            if let Some(name_node) = user2.get(&Cow::Borrowed("name")) {
-                assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Bob"));
-            }
-            if let Some(age_node) = user2.get(&Cow::Borrowed("age")) {
-                assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "25"));
+                // Check second user
+                if let YamlValue::Object(user2) = &users[1].value {
+                    if let Some(name_node) = user2.get(&Cow::Borrowed("name")) {
+                        assert!(matches!(name_node.value, YamlValue::String(ref s) if s == "Bob"));
+                    }
+                    if let Some(age_node) = user2.get(&Cow::Borrowed("age")) {
+                        assert!(matches!(age_node.value, YamlValue::String(ref s) if s == "25"));
+                    }
+                }
             }
         }
     }
@@ -242,35 +244,36 @@ features:
 
     let result = parse(yaml).expect("Failed to parse array with inline object format");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(features_node) = map.get(&Cow::Borrowed("features"))
-        && let YamlValue::Array(features) = &features_node.value
-    {
-        assert_eq!(features.len(), 2);
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(features_node) = map.get(&Cow::Borrowed("features")) {
+            if let YamlValue::Array(features) = &features_node.value {
+                assert_eq!(features.len(), 2);
 
-        // First feature
-        if let YamlValue::Object(f1) = &features[0].value {
-            assert_eq!(f1.len(), 2);
-            assert!(
-                matches!(f1.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "false")
-            );
-            assert!(
-                matches!(f1.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature1")
-            );
-        }
+                // First feature
+                if let YamlValue::Object(f1) = &features[0].value {
+                    assert_eq!(f1.len(), 2);
+                    assert!(
+                        matches!(f1.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "false")
+                    );
+                    assert!(
+                        matches!(f1.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature1")
+                    );
+                }
 
-        // Second feature
-        if let YamlValue::Object(f2) = &features[1].value {
-            assert_eq!(f2.len(), 3);
-            assert!(
-                matches!(f2.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "true")
-            );
-            assert!(
-                matches!(f2.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature2")
-            );
-            assert!(
-                matches!(f2.get(&Cow::Borrowed("priority")).unwrap().value, YamlValue::String(ref s) if s == "high")
-            );
+                // Second feature
+                if let YamlValue::Object(f2) = &features[1].value {
+                    assert_eq!(f2.len(), 3);
+                    assert!(
+                        matches!(f2.get(&Cow::Borrowed("enabled")).unwrap().value, YamlValue::String(ref s) if s == "true")
+                    );
+                    assert!(
+                        matches!(f2.get(&Cow::Borrowed("name")).unwrap().value, YamlValue::String(ref s) if s == "feature2")
+                    );
+                    assert!(
+                        matches!(f2.get(&Cow::Borrowed("priority")).unwrap().value, YamlValue::String(ref s) if s == "high")
+                    );
+                }
+            }
         }
     }
 }

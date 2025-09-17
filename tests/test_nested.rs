@@ -41,17 +41,24 @@ level1:
 
     let result = parse(yaml).expect("Failed to parse");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(l1) = map.get(&Cow::Borrowed("level1"))
-        && let YamlValue::Object(l1_map) = &l1.value
-        && let Some(l2) = l1_map.get(&Cow::Borrowed("level2"))
-        && let YamlValue::Object(l2_map) = &l2.value
-        && let Some(l3) = l2_map.get(&Cow::Borrowed("level3"))
-        && let YamlValue::Object(l3_map) = &l3.value
-        && let Some(val) = l3_map.get(&Cow::Borrowed("value"))
-        && let YamlValue::String(s) = &val.value
-    {
-        assert_eq!(s.as_ref(), "deep");
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(l1) = map.get(&Cow::Borrowed("level1")) {
+            if let YamlValue::Object(l1_map) = &l1.value {
+                if let Some(l2) = l1_map.get(&Cow::Borrowed("level2")) {
+                    if let YamlValue::Object(l2_map) = &l2.value {
+                        if let Some(l3) = l2_map.get(&Cow::Borrowed("level3")) {
+                            if let YamlValue::Object(l3_map) = &l3.value {
+                                if let Some(val) = l3_map.get(&Cow::Borrowed("value")) {
+                                    if let YamlValue::String(s) = &val.value {
+                                        assert_eq!(s.as_ref(), "deep");
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -69,17 +76,18 @@ config:
 
     let result = parse(yaml).expect("Failed to parse");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(config) = map.get(&Cow::Borrowed("config"))
-        && let YamlValue::Object(config_map) = &config.value
-    {
-        assert!(config_map.contains_key(&Cow::Borrowed("features")));
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(config) = map.get(&Cow::Borrowed("config")) {
+            if let YamlValue::Object(config_map) = &config.value {
+                assert!(config_map.contains_key(&Cow::Borrowed("features")));
 
-        // Verify the array structure
-        if let Some(features) = config_map.get(&Cow::Borrowed("features"))
-            && let YamlValue::Array(features_arr) = &features.value
-        {
-            assert_eq!(features_arr.len(), 2);
+                // Verify the array structure
+                if let Some(features) = config_map.get(&Cow::Borrowed("features")) {
+                    if let YamlValue::Array(features_arr) = &features.value {
+                        assert_eq!(features_arr.len(), 2);
+                    }
+                }
+            }
         }
     }
 }

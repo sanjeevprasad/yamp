@@ -85,28 +85,28 @@ root:
 
     let parsed = parse(yaml).expect("Failed to parse");
 
-    if let YamlValue::Object(root_map) = &parsed.value
-        && let YamlValue::Object(root_obj) = &root_map.get(&Cow::Borrowed("root")).unwrap().value
-    {
-        assert_eq!(root_obj.len(), 2);
+    if let YamlValue::Object(root_map) = &parsed.value {
+        if let YamlValue::Object(root_obj) = &root_map.get(&Cow::Borrowed("root")).unwrap().value {
+            assert_eq!(root_obj.len(), 2);
 
-        // Check child1
-        if let YamlValue::Object(child1) = &root_obj.get(&Cow::Borrowed("child1")).unwrap().value {
-            if let YamlValue::String(s) = &child1.get(&Cow::Borrowed("value")).unwrap().value {
-                assert_eq!(s.as_ref(), "test");
+            // Check child1
+            if let YamlValue::Object(child1) = &root_obj.get(&Cow::Borrowed("child1")).unwrap().value {
+                if let YamlValue::String(s) = &child1.get(&Cow::Borrowed("value")).unwrap().value {
+                    assert_eq!(s.as_ref(), "test");
+                }
+                if let YamlValue::String(s) = &child1.get(&Cow::Borrowed("number")).unwrap().value {
+                    assert_eq!(s.as_ref(), "42");
+                }
             }
-            if let YamlValue::String(s) = &child1.get(&Cow::Borrowed("number")).unwrap().value {
-                assert_eq!(s.as_ref(), "42");
-            }
-        }
 
-        // Check child2
-        if let YamlValue::Object(child2) = &root_obj.get(&Cow::Borrowed("child2")).unwrap().value {
-            if let YamlValue::String(s) = &child2.get(&Cow::Borrowed("flag")).unwrap().value {
-                assert_eq!(s.as_ref(), "true");
-            }
-            if let YamlValue::String(s) = &child2.get(&Cow::Borrowed("version")).unwrap().value {
-                assert_eq!(s.as_ref(), "3.10");
+            // Check child2
+            if let YamlValue::Object(child2) = &root_obj.get(&Cow::Borrowed("child2")).unwrap().value {
+                if let YamlValue::String(s) = &child2.get(&Cow::Borrowed("flag")).unwrap().value {
+                    assert_eq!(s.as_ref(), "true");
+                }
+                if let YamlValue::String(s) = &child2.get(&Cow::Borrowed("version")).unwrap().value {
+                    assert_eq!(s.as_ref(), "3.10");
+                }
             }
         }
     }

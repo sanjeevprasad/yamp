@@ -174,12 +174,12 @@ impl<'g> Parser<'g> {
 
     fn collect_comment(&mut self) -> Option<Cow<'g, str>> {
         self.skip_whitespace();
-        if let Some(token) = self.current_token()
-            && token.kind == TokenKind::Comment
-        {
-            let comment = token.text.trim_start_matches('#').trim();
-            self.advance();
-            return Some(Cow::Borrowed(comment));
+        if let Some(token) = self.current_token() {
+            if token.kind == TokenKind::Comment {
+                let comment = token.text.trim_start_matches('#').trim();
+                self.advance();
+                return Some(Cow::Borrowed(comment));
+            }
         }
         None
     }
@@ -189,12 +189,12 @@ impl<'g> Parser<'g> {
 
         // Collect leading comment if it's on a line by itself
         let mut leading_comment: Option<Cow<'g, str>> = None;
-        if let Some(token) = self.current_token()
-            && token.kind == TokenKind::Comment
-        {
-            leading_comment = Some(Cow::Borrowed(token.text.trim_start_matches('#').trim()));
-            self.advance();
-            self.skip_whitespace_and_newlines();
+        if let Some(token) = self.current_token() {
+            if token.kind == TokenKind::Comment {
+                leading_comment = Some(Cow::Borrowed(token.text.trim_start_matches('#').trim()));
+                self.advance();
+                self.skip_whitespace_and_newlines();
+            }
         }
 
         let token = self
@@ -211,11 +211,11 @@ impl<'g> Parser<'g> {
                 self.advance();
 
                 self.skip_whitespace();
-                if let Some(next) = self.current_token()
-                    && next.kind == TokenKind::Colon
-                {
-                    self.current -= 1; // Back up
-                    return self.parse_object(min_indent);
+                if let Some(next) = self.current_token() {
+                    if next.kind == TokenKind::Colon {
+                        self.current -= 1; // Back up
+                        return self.parse_object(min_indent);
+                    }
                 }
 
                 // It's a scalar value - always treat as string
@@ -396,7 +396,7 @@ impl<'g> Parser<'g> {
             self.advance();
         }
 
-        let mut lines = Vec::new();
+        let mut lines: Vec<String> = Vec::new();
         let mut content_indent = None;
 
         // Collect all lines that are more indented than base_indent
@@ -431,7 +431,7 @@ impl<'g> Parser<'g> {
 
             // If it's a newline, add an empty line
             if token.kind == TokenKind::NewLine {
-                lines.push("");
+                lines.push(String::new());
                 self.advance();
                 continue;
             }
@@ -461,19 +461,19 @@ impl<'g> Parser<'g> {
                 self.advance();
             }
 
-            lines.push(line_text.leak()); // Convert to &'static str for simplicity
+            lines.push(line_text);
 
-            if let Some(token) = self.current_token()
-                && token.kind == TokenKind::NewLine
-            {
-                self.advance();
+            if let Some(token) = self.current_token() {
+                if token.kind == TokenKind::NewLine {
+                    self.advance();
+                }
             }
         }
 
         // Process the lines based on mode
         let result = if is_literal {
             // Literal mode: preserve line breaks
-            let mut result = lines.join("\n");
+            let mut result = lines.iter().map(|s| s.as_str()).collect::<Vec<_>>().join("\n");
 
             // Apply chomping
             match chomp_mode {
@@ -606,19 +606,19 @@ impl<'g> Parser<'g> {
             map.insert(key, value);
 
             self.skip_whitespace();
-            if let Some(token) = self.current_token()
-                && token.kind == TokenKind::NewLine
-            {
-                self.advance();
-                self.skip_whitespace_and_newlines();
+            if let Some(token) = self.current_token() {
+                if token.kind == TokenKind::NewLine {
+                    self.advance();
+                    self.skip_whitespace_and_newlines();
+                }
             }
 
             // Check if we've dedented or reached end
-            if let Some(token) = self.current_token()
-                && token.kind == TokenKind::Dedent
-            {
-                self.advance();
-                break;
+            if let Some(token) = self.current_token() {
+                if token.kind == TokenKind::Dedent {
+                    self.advance();
+                    break;
+                }
             }
         }
 

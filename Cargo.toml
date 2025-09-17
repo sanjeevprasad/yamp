@@ -1,7 +1,8 @@
 [package]
 name        = "yamp"
 version     = "0.1.0"
-edition     = "2024"
+edition     = "2021"
+rust-version = "1.70.0"
 authors     = ["sanjeevprasad"]
 description = "Yet Another Minimal Parser - A safe, predictable YAML parser that treats all values as strings"
 readme      = "README.md"

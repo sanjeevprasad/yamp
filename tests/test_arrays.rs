@@ -19,11 +19,12 @@ fn test_nested_arrays() {
     let yaml = "fruits:\n  - apple\n  - banana\n  - orange";
     let result = parse(yaml).expect("Failed to parse");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(fruits_node) = map.get(&Cow::Borrowed("fruits"))
-        && let YamlValue::Array(items) = &fruits_node.value
-    {
-        assert_eq!(items.len(), 3);
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(fruits_node) = map.get(&Cow::Borrowed("fruits")) {
+            if let YamlValue::Array(items) = &fruits_node.value {
+                assert_eq!(items.len(), 3);
+            }
+        }
     }
 }
 
@@ -52,11 +53,12 @@ fn test_array_of_objects_inline_format() {
 
     let result = parse(yaml).expect("Failed to parse");
 
-    if let YamlValue::Object(map) = &result.value
-        && let Some(features) = map.get(&Cow::Borrowed("features"))
-        && let YamlValue::Array(items) = &features.value
-    {
-        assert_eq!(items.len(), 2);
+    if let YamlValue::Object(map) = &result.value {
+        if let Some(features) = map.get(&Cow::Borrowed("features")) {
+            if let YamlValue::Array(items) = &features.value {
+                assert_eq!(items.len(), 2);
+            }
+        }
     }
 }
 

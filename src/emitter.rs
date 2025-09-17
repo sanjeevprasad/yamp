@@ -49,10 +49,10 @@ impl Emitter {
 
     fn emit_node<'a>(&mut self, node: &YamlNode<'a>, inline: bool) {
         // Write leading comment if present
-        if let Some(ref comment) = node.leading_comment
-            && !inline
-        {
-            self.write_comment(comment, false);
+        if !inline {
+            if let Some(ref comment) = node.leading_comment {
+                self.write_comment(comment, false);
+            }
         }
 
         match &node.value {
@@ -75,10 +75,10 @@ impl Emitter {
         }
 
         // Write inline comment if present
-        if let Some(ref comment) = node.inline_comment
-            && inline
-        {
-            self.write_comment(comment, true);
+        if inline {
+            if let Some(ref comment) = node.inline_comment {
+                self.write_comment(comment, true);
+            }
         }
     }
 
